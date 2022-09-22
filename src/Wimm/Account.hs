@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 -- |
 -- Module      :  Wimm.Account
 -- Copyright   :  © 2022 Vincent Archambault
@@ -55,8 +53,9 @@ data Account = Account {
   aIdentifier :: T.Text, -- Unique to each account. The identifier is used 
                          -- when other JSON object what to refer to this account.
   aDisplayName :: T.Text, -- Many accounts can have the same display name on the reports.
-  aNumber :: Int, -- Provided by the user. Must be different for each account.
-  aParent :: T.Text -- Identifier of the parent, as defined in the account CSV files
+  aNumber :: Int -- Provided by the user. Must be different for each account.
+  -- For now let us use flat structure
+  -- aParent :: T.Text -- Identifier of the parent, as defined in the account CSV files
 }
   deriving (Generic, Show)
 
@@ -70,8 +69,8 @@ instance FromJSON Account
 
 topAccounts :: (Account, Account, Account, Account, Account)
 topAccounts =
-  (Account "Actif" "Actif" 1000 "",
-   Account "Passif" "Passif" 2000 "",
-   Account "Capital" "Capital" 3000 "",
-   Account "Revenus" "Revenus" 4000 "",
-   Account "Dépense" "Dépense" 5000 "")
+  (Account "Actif" "Actif" 1000,
+   Account "Passif" "Passif" 2000,
+   Account "Capital" "Capital" 3000,
+   Account "Revenus" "Revenus" 4000,
+   Account "Dépense" "Dépense" 5000)
