@@ -1,0 +1,61 @@
+name:                wimm
+version:             0.1.0.0
+github:              "archambaultv/wimm"
+license:             MIT
+author:              "Vincent Archambault-B"
+maintainer:          "vincentarchambault@icloud.com"
+copyright:           "MIT"
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+# Metadata used when publishing your package
+synopsis:            Simple git friendly accounting program
+category:            Finance
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/archambaultv/wimm#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- text
+- aeson
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+
+executables:
+  wimm-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - wimm
+
+tests:
+  wimm-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - wimm
