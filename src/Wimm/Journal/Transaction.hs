@@ -13,8 +13,8 @@ module Wimm.Journal.Transaction
     ) where
 
 import Data.Time (Day)
-import Data.Aeson (ToJSON, FromJSON, toEncoding, genericToEncoding, defaultOptions)
-import GHC.Generics (Generic)
+import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
+                   (.:?), (.!=))
 import qualified Data.Text as T
 import Wimm.Journal.Posting
 
@@ -24,9 +24,23 @@ data Transaction = Transaction
     tCounterParty :: T.Text,
     tTags :: [T.Text],
     tPostings :: [Posting]
-  } deriving (Eq, Show, Generic)
+  } deriving (Eq, Show)
 
 instance ToJSON Transaction where
-    toEncoding = genericToEncoding defaultOptions
-
-instance FromJSON Transaction
+  toJSON (Transaction date cc tags postings) =
+        object $ ["Date" .= date, 
+                "Postings" .= postings] ++
+                (if T.null cc then [] else ["Counterparty" .= cc]) ++
+                (if null tags then [] else ["Tags" .= tags])
+  toEncoding (Transaction date cc tags postings) =
+        pairs $ "Date" .= date <>
+                "Postings" .= postings <>
+                (if T.null cc then mempty else "Counterparty" .= cc) <>
+                (if null tags then mempty else "Tags" .= tags)
+              
+instance FromJSON Transaction where
+    parseJSON = withObject "Transaction" $ \v -> Transaction
+        <$> v .: "Date"
+        <*> (v .:? "Counterparty" .!= "")
+        <*> (v .:? "Tags" .!= [])
+        <*> v .: "Postings"

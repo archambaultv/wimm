@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/arch
 dependencies:
 - base >= 4.7 && < 5
 - text
+- bytestring
 - aeson
 - time
 - optparse-applicative
@@ -38,7 +39,6 @@ ghc-options:
 - -Wredundant-constraints
 
 default-extensions:
-- DeriveGeneric
 - OverloadedStrings
 
 library:

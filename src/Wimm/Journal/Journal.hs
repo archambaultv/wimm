@@ -12,8 +12,7 @@ module Wimm.Journal.Journal
     ( Journal(..)
     ) where
 
-import Data.Aeson (ToJSON, FromJSON, toEncoding, genericToEncoding, defaultOptions)
-import GHC.Generics (Generic)
+import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs)
 import qualified Data.Text as T
 import Wimm.Journal.Account
 import Wimm.Journal.Currency
@@ -48,9 +47,44 @@ data Journal = Journal {
   jTransactions :: [Transaction]
 
   }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show)
 
 instance ToJSON Journal where
-    toEncoding = genericToEncoding defaultOptions
+  toJSON (Journal open earn comp ffm curr asset lia equi rev expe txns) =
+        object ["Opening balance account" .= open, 
+                "Earnings account" .= earn,
+                "Company name" .= comp,
+                "First fiscal month" .= ffm,
+                "Currency" .= curr,
+                "Asset accounts" .= asset,
+                "Liability accounts" .= lia,
+                "Equity accounts" .= equi,
+                "Revenue accounts" .= rev,
+                "Expense accounts" .= expe,
+                "Transactions" .= txns]
+  toEncoding (Journal open earn comp ffm curr asset lia equi rev expe txns) =
+        pairs ( "Opening balance account" .= open <>
+                "Earnings account" .= earn <>
+                "Company name" .= comp <>
+                "First fiscal month" .= ffm <>
+                "Currency" .= curr <>
+                "Asset accounts" .= asset <>
+                "Liability accounts" .= lia <>
+                "Equity accounts" .= equi <>
+                "Revenue accounts" .= rev <>
+                "Expense accounts" .= expe <>
+                "Transactions" .= txns)
 
-instance FromJSON Journal
+instance FromJSON Journal where
+    parseJSON = withObject "Journal" $ \v -> Journal
+        <$> v .: "Opening balance account"
+        <*> v .: "Earnings account"
+        <*> v .: "Company name"
+        <*> v .: "First fiscal month"
+        <*> v .: "Currency"
+        <*> v .: "Asset accounts"
+        <*> v .: "Liability accounts"
+        <*> v .: "Equity accounts"
+        <*> v .: "Revenue accounts"
+        <*> v .: "Expense accounts"
+        <*> v .: "Transactions"

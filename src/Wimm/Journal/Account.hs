@@ -13,12 +13,11 @@ module Wimm.Journal.Account
       isIncomeStatementType,
       isCreditType,
       isDebitType,
-      Account(..),
-      topAccounts
+      Account(..)
     ) where
 
-import Data.Aeson (ToJSON, FromJSON, toEncoding, genericToEncoding, defaultOptions)
-import GHC.Generics (Generic)
+import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
+                   (.:?), (.!=))
 import qualified Data.Text as T
 
 -- | The top level grouping of an account. Must be Asset, Liability,
@@ -57,20 +56,24 @@ data Account = Account {
   -- For now let us use flat structure
   -- aParent :: T.Text -- Identifier of the parent, as defined in the account CSV files
 }
-  deriving (Generic, Show)
+  deriving (Show)
 
 instance Eq Account where
   (==) a1 a2 = aNumber a1 == aNumber a2
 
 instance ToJSON Account where
-    toEncoding = genericToEncoding defaultOptions
-
-instance FromJSON Account
-
-topAccounts :: (Account, Account, Account, Account, Account)
-topAccounts =
-  (Account "Actif" "Actif" 1000,
-   Account "Passif" "Passif" 2000,
-   Account "Capital" "Capital" 3000,
-   Account "Revenus" "Revenus" 4000,
-   Account "Dépense" "Dépense" 5000)
+  toJSON (Account ident name number) =
+        object $ ["Identifier" .= ident, 
+                 "Number" .= number] ++
+                 (if T.null name then [] else ["Name" .= name])
+  toEncoding (Account ident name number) =
+        pairs $ "Identifier" .= ident <>
+                "Number" .= number <>
+                (if T.null name then mempty else "Name" .= name)
+              
+instance FromJSON Account where
+    parseJSON = withObject "Account" $ \v -> do
+        ident <- v .: "Identifier"
+        name <- v .:? "Name" .!= ident
+        num <- v .: "Number"
+        return $ Account ident name num
