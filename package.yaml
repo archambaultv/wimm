@@ -24,6 +24,7 @@ dependencies:
 - text
 - aeson
 - time
+- optparse-applicative
 
 ghc-options:
 - -Wall
@@ -44,7 +45,7 @@ library:
   source-dirs: src
 
 executables:
-  wimm-exe:
+  wimm:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
