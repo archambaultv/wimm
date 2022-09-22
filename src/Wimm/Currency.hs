@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 -- |
 -- Module      :  Wimm.Currency
 -- Copyright   :  © 2022 Vincent Archambault
