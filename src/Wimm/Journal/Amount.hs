@@ -1,5 +1,5 @@
 -- |
--- Module      :  Wimm.Amount
+-- Module      :  Wimm.Journal.Amount
 -- Copyright   :  © 2022 Vincent Archambault
 -- License     :  MIT
 --
@@ -8,13 +8,13 @@
 --
 -- This module defines what an amount is.
 
-module Wimm.Amount
+module Wimm.Journal.Amount
     ( Amount,
       showAmount
     ) where
 
 import qualified Data.Text as T
-import Wimm.Currency
+import Wimm.Journal.Currency
 
 -- | All amount in the program are handled as Int since there is only one
 -- currency. This means that 5.32$ is actually 532 in the program. This ensures

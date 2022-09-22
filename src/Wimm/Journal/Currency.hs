@@ -1,5 +1,5 @@
 -- |
--- Module      :  Wimm.Currency
+-- Module      :  Wimm.Journal.Currency
 -- Copyright   :  © 2022 Vincent Archambault
 -- License     :  MIT
 --
@@ -9,7 +9,7 @@
 -- This module defines what is a currency. Althought wimm is a single currency
 -- programm, we need some info about this currency. 
 
-module Wimm.Currency
+module Wimm.Journal.Currency
     ( Currency(..)
     ) where
 

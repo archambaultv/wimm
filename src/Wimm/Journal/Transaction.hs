@@ -1,5 +1,5 @@
 -- |
--- Module      :  Wimm.Transaction
+-- Module      :  Wimm.Journal.Transaction
 -- Copyright   :  © 2022 Vincent Archambault
 -- License     :  MIT
 --
@@ -7,7 +7,7 @@
 -- Stability   :  experimental
 --
 -- This module defines what a transaction is.
-module Wimm.Transaction
+module Wimm.Journal.Transaction
     ( 
       Transaction(..)
     ) where
@@ -16,7 +16,7 @@ import Data.Time (Day)
 import Data.Aeson (ToJSON, FromJSON, toEncoding, genericToEncoding, defaultOptions)
 import GHC.Generics (Generic)
 import qualified Data.Text as T
-import Wimm.Posting
+import Wimm.Journal.Posting
 
 data Transaction = Transaction
   {

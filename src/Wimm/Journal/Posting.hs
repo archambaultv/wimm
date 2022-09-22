@@ -1,5 +1,5 @@
 -- |
--- Module      :  Wimm.Posting
+-- Module      :  Wimm.Journal.Posting
 -- Copyright   :  © 2022 Vincent Archambault
 -- License     :  MIT
 --
@@ -7,7 +7,7 @@
 -- Stability   :  experimental
 --
 -- This module defines what a posting is.
-module Wimm.Posting
+module Wimm.Journal.Posting
     ( 
       Posting(..)
     ) where

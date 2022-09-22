@@ -1,5 +1,5 @@
 -- |
--- Module      :  Wimm.Account
+-- Module      :  Wimm.Journal.Account
 -- Copyright   :  © 2022 Vincent Archambault
 -- License     :  MIT
 --
@@ -7,7 +7,7 @@
 -- Stability   :  experimental
 --
 -- This module defines what is a account.
-module Wimm.Account
+module Wimm.Journal.Account
     ( AccountType(..),
       isBalanceSheetType,
       isIncomeStatementType,
@@ -53,7 +53,7 @@ data Account = Account {
   aIdentifier :: T.Text, -- Unique to each account. The identifier is used 
                          -- when other JSON object what to refer to this account.
   aDisplayName :: T.Text, -- Many accounts can have the same display name on the reports.
-  aNumber :: Int -- Provided by the user. Must be different for each account.
+  aNumber :: Int -- Provided by the user. Must be different for each account. As a rule, it must respec
   -- For now let us use flat structure
   -- aParent :: T.Text -- Identifier of the parent, as defined in the account CSV files
 }
