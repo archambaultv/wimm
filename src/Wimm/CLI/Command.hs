@@ -32,4 +32,5 @@ runCommand c = do
   let x = eitherDecode' input :: Either String Journal
   case x of
     Left err -> putStrLn err
-    Right journal -> writeReport (cCsvFile c) ',' $ transactionReport (Nothing, Nothing) journal
+    Right journal -> writeReport (cCsvFile c) (jCsvSeparator journal)
+                   $ transactionReport (Nothing, Nothing) journal

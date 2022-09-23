@@ -44,13 +44,16 @@ data Journal = Journal {
    jExpense :: [Account],
 
   -- | The transactions.
-  jTransactions :: [Transaction]
+  jTransactions :: [Transaction],
+
+  -- | Csv separator to use when writing reports
+  jCsvSeparator :: Char
 
   }
   deriving (Eq, Show)
 
 instance ToJSON Journal where
-  toJSON (Journal open earn comp ffm curr asset lia equi rev expe txns) =
+  toJSON (Journal open earn comp ffm curr asset lia equi rev expe txns csvSep) =
         object ["Opening balance account" .= open, 
                 "Earnings account" .= earn,
                 "Company name" .= comp,
@@ -61,8 +64,9 @@ instance ToJSON Journal where
                 "Equity accounts" .= equi,
                 "Revenue accounts" .= rev,
                 "Expense accounts" .= expe,
-                "Transactions" .= txns]
-  toEncoding (Journal open earn comp ffm curr asset lia equi rev expe txns) =
+                "Transactions" .= txns,
+                "CSV delimiter" .= csvSep]
+  toEncoding (Journal open earn comp ffm curr asset lia equi rev expe txns csvSep) =
         pairs ( "Opening balance account" .= open <>
                 "Earnings account" .= earn <>
                 "Company name" .= comp <>
@@ -73,7 +77,8 @@ instance ToJSON Journal where
                 "Equity accounts" .= equi <>
                 "Revenue accounts" .= rev <>
                 "Expense accounts" .= expe <>
-                "Transactions" .= txns)
+                "Transactions" .= txns <>
+                "CSV delimiter" .= csvSep)
 
 instance FromJSON Journal where
     parseJSON = withObject "Journal" $ \v -> Journal
@@ -88,3 +93,4 @@ instance FromJSON Journal where
         <*> v .: "Revenue accounts"
         <*> v .: "Expense accounts"
         <*> v .: "Transactions"
+        <*> v .: "CSV delimiter"
