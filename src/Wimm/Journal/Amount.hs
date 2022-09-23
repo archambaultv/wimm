@@ -10,34 +10,27 @@
 
 module Wimm.Journal.Amount
     ( Amount,
+      fromScientific,
+      toScientific,
       showAmount
     ) where
 
+import Data.Decimal
+import Data.Scientific
 import qualified Data.Text as T
-import Wimm.Journal.Currency
+import Wimm.Journal.ReportParameters
 
--- | All amount in the program are handled as Int since there is only one
--- currency. This means that 5.32$ is actually 532 in the program. This ensures
--- there is no rounding error or that an amount must be divided without any
--- fractional part. It is also faster and simpler than using more complex
--- packages like Data.Decimal
-type Amount = Int
+-- | A quantity is any decimal number. The decimal package ensures
+-- that no rounding error can occur.
+type Amount = Decimal
 
-showAmount :: Currency -> Amount -> T.Text
-showAmount curr = addSymbol . addDecimal
-  where addDecimal :: Amount -> T.Text
-        addDecimal = 
-          if cNbOfDecimal curr == 0
-          then T.pack . show
-          else T.pack . snd . foldr alg (0, "") . show
+fromScientific :: Scientific -> Amount
+fromScientific = fromRational . toRational
 
-        alg :: Char -> (Int, String) -> (Int, String)
-        alg c (n, t) | n == cNbOfDecimal curr = (n + 1, c : T.unpack (cDecimalSep curr) ++ t)
-        alg c (n, t) = (n + 1, c : t)
+toScientific :: Amount -> Scientific
+toScientific = fromRational . toRational
 
-        addSymbol :: T.Text -> T.Text
-        addSymbol amnt = 
-          let space = if cSymbolInsertSpace curr then " " else ""
-          in  if cSymbolBeforeAmount curr
-              then T.concat [cSymbol curr, space, amnt]
-              else T.concat [amnt, space, cSymbol curr]
+showAmount :: JournalReportParameters -> Amount -> T.Text
+showAmount p = T.pack 
+                . map (\x -> if x == '.' then jDecimalSep p else x) 
+                . show

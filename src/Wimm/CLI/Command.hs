@@ -30,5 +30,5 @@ runCommand c = do
   input <- decodeFileEither (cJournalFile c) :: IO (Either ParseException Journal)
   case input of
     Left err -> putStrLn (show err)
-    Right journal -> writeReport (cCsvFile c) (jCsvSeparator journal)
+    Right journal -> writeReport (cCsvFile c) (jCsvSeparator $ jReportParams journal)
                    $ transactionReport (Nothing, Nothing) journal

@@ -38,7 +38,7 @@ transactionReport _ journal =
               tags = T.intercalate "|" $ tTags txn
               acc = pAccount p
               accNo = accNoMap HM.! acc
-          in [no,date,acc,accNo,showAmount (jCurrency journal) (pAmount p),ctp,comment,tags] : report
+          in [no,date,acc,accNo,showAmount (jReportParams journal) (pAmount p),ctp,comment,tags] : report
 
         -- Key :: Account identifier
         -- Value :: Account number as text
