@@ -12,7 +12,8 @@ module Wimm.Journal.ReportParameters
     ( JournalReportParameters(..)
     ) where
 
-import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs)
+import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
+                   (.:?),(.!=))
 import qualified Data.Text as T
 
 data JournalReportParameters = JournalReportParameters {
@@ -37,25 +38,26 @@ data JournalReportParameters = JournalReportParameters {
 
 instance ToJSON JournalReportParameters where
   toJSON (JournalReportParameters open earn comp ffm currSep csvSep) =
-        object ["Opening balance account" .= open, 
+        object $ (if T.null comp then [] else ["Company name" .= comp]) ++
+               ["Opening balance account" .= open, 
                 "Earnings account" .= earn,
-                "Company name" .= comp,
                 "First fiscal month" .= ffm,
                 "Decimal separator" .= currSep,
                 "CSV delimiter" .= csvSep]
+                
   toEncoding (JournalReportParameters open earn comp ffm currSep csvSep) =
-        pairs ( "Opening balance account" .= open <>
+        pairs $ (if T.null comp then mempty else "Company name" .= comp) <>
+                "Opening balance account" .= open <>
                 "Earnings account" .= earn <>
-                "Company name" .= comp <>
                 "First fiscal month" .= ffm <>
                 "Decimal separator" .= currSep <>
-                "CSV delimiter" .= csvSep)
+                "CSV delimiter" .= csvSep
 
 instance FromJSON JournalReportParameters where
     parseJSON = withObject "Report parameters" $ \v -> JournalReportParameters
         <$> v .: "Opening balance account"
         <*> v .: "Earnings account"
-        <*> v .: "Company name"
-        <*> v .: "First fiscal month"
-        <*> v .: "Decimal separator"
-        <*> v .: "CSV delimiter"
+        <*> v .:? "Company name" .!= ""
+        <*> v .:? "First fiscal month" .!= 1
+        <*> v .:? "Decimal separator" .!= '.'
+        <*> v .:? "CSV delimiter" .!= ','
