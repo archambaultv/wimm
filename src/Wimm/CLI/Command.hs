@@ -14,21 +14,30 @@ module Wimm.CLI.Command
   runCommand
 ) where
 
-import Data.Yaml (decodeFileEither, ParseException)
+import Data.Yaml (decodeFileEither, ParseException, encodeFile)
 import Wimm.Journal
+import Wimm.Import.Csv
 import Wimm.Report
 
 -- | The commands accepted by the command line interface
-data Command = Command {
-  cJournalFile :: String, -- The journal file
-  cCsvFile :: FilePath -- The output file filepath
-  }
+data Command = CTxnReport FilePath FilePath
+             | CTxnImport FilePath FilePath FilePath
 
 -- | How to execute the CLI commands
 runCommand :: Command -> IO ()
-runCommand c = do
-  input <- decodeFileEither (cJournalFile c) :: IO (Either ParseException Journal)
+runCommand (CTxnReport journalPath reportPath) = do
+  input <- decodeFileEither journalPath :: IO (Either ParseException Journal)
   case input of
     Left err -> putStrLn (show err)
-    Right journal -> writeReport (cCsvFile c) (jCsvSeparator $ jReportParams journal)
-                   $ transactionReport (Nothing, Nothing) journal
+    Right journal -> do
+      let report = transactionReport (Nothing, Nothing) journal
+      let csvSep = jCsvSeparator $ jReportParams journal
+      writeReport reportPath csvSep report
+
+runCommand (CTxnImport csvDescPath csvDataPath outputPath) = do
+  input <- decodeFileEither csvDescPath :: IO (Either ParseException ImportCsv)
+  case input of
+    Left err -> putStrLn (show err)
+    Right desc -> do
+      txns <- importCsv desc csvDataPath
+      encodeFile outputPath (txns :: [Transaction])

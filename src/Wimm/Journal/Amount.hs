@@ -12,11 +12,13 @@ module Wimm.Journal.Amount
     ( Amount,
       fromScientific,
       toScientific,
-      showAmount
+      showAmount,
+      readAmount
     ) where
 
-import Data.Decimal
-import Data.Scientific
+import Data.Decimal (Decimal)
+import Data.Scientific (scientificP, Scientific)
+import Text.ParserCombinators.ReadP (readP_to_S)
 import qualified Data.Text as T
 import Wimm.Journal.ReportParameters
 
@@ -29,6 +31,13 @@ fromScientific = fromRational . toRational
 
 toScientific :: Amount -> Scientific
 toScientific = fromRational . toRational
+
+readAmount :: String -> Maybe Amount
+readAmount s = 
+  case readP_to_S scientificP s of
+    [(n,"")] -> return $ fromScientific n
+    _ -> Nothing
+
 
 showAmount :: JournalReportParameters -> Amount -> T.Text
 showAmount p = T.pack 

@@ -21,22 +21,40 @@ import Wimm.CLI.Command
 journalFile :: Parser String
 journalFile = argument str (metavar "JOURNAL-FILE" <> help "The journal file")
 
-csvFile :: Parser String
-csvFile = argument str (metavar "CSV-FILE" <> help "The csv file")
+csvDescFile :: Parser String
+csvDescFile = argument str (metavar "CSV-DESC-FILE" <> help "The YAML file that describes the csv structures")
 
-transactionsCommand :: Parser Command
-transactionsCommand = Command
+statementFile :: Parser String
+statementFile = argument str (metavar "STATEMENT-FILE" <> help "The csv file from the bank")
+
+csvFile :: Parser String
+csvFile = argument str (metavar "CSV-FILE" <> help "The output csv file")
+
+transactionsReport :: Parser Command
+transactionsReport = CTxnReport
                    <$> journalFile
                    <*> csvFile
 
-transactionsInfo :: ParserInfo Command
-transactionsInfo = info (transactionsCommand <**> helper)
+transactionsReportInfo :: ParserInfo Command
+transactionsReportInfo = info (transactionsReport <**> helper)
               (fullDesc
                <> progDesc "Prints all transactions in a CSV format")
 
+transactionsImport :: Parser Command
+transactionsImport = CTxnImport
+                   <$> csvDescFile
+                   <*> statementFile
+                   <*> csvFile
+
+transactionsImportInfo :: ParserInfo Command
+transactionsImportInfo = info (transactionsImport <**> helper)
+              (fullDesc
+               <> progDesc "Imports transactions from a bank CSV and prints them in a YAML format")
+
 parseCommand :: Parser Command
 parseCommand = subparser
-  ( command "transactions" transactionsInfo )
+  ( command "transactions" transactionsReportInfo <>
+    command "import" transactionsImportInfo)
 
 opts :: ParserInfo Command
 opts = info (parseCommand <**> helper)
