@@ -24,8 +24,20 @@ import Wimm.Journal.Currency
 type Amount = Int
 
 showAmount :: Currency -> Amount -> T.Text
-showAmount curr | cNbOfDecimal curr == 0 = T.pack . show
-showAmount curr = T.pack . snd . foldr alg (0, "") . show
-    where alg :: Char -> (Int, String) -> (Int, String)
-          alg c (n, t) | n == cNbOfDecimal curr = (n + 1, c : T.unpack (cDecimalSep curr) ++ t)
-          alg c (n, t) = (n + 1, c : t)
+showAmount curr = addSymbol . addDecimal
+  where addDecimal :: Amount -> T.Text
+        addDecimal = 
+          if cNbOfDecimal curr == 0
+          then T.pack . show
+          else T.pack . snd . foldr alg (0, "") . show
+
+        alg :: Char -> (Int, String) -> (Int, String)
+        alg c (n, t) | n == cNbOfDecimal curr = (n + 1, c : T.unpack (cDecimalSep curr) ++ t)
+        alg c (n, t) = (n + 1, c : t)
+
+        addSymbol :: T.Text -> T.Text
+        addSymbol amnt = 
+          let space = if cSymbolInsertSpace curr then " " else ""
+          in  if cSymbolBeforeAmount curr
+              then T.concat [cSymbol curr, space, amnt]
+              else T.concat [amnt, space, cSymbol curr]

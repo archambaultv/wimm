@@ -34,4 +34,4 @@ transactionReport _ journal =
 
         serializePosting :: T.Text -> T.Text -> T.Text -> T.Text -> Posting -> Report -> Report
         serializePosting no date ctp comment p report =
-          [no,date,pAccount p,"",T.pack $ show (pAmount p),ctp,comment] : report
+          [no,date,pAccount p,"",showAmount (jCurrency journal) (pAmount p),ctp,comment] : report

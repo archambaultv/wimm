@@ -22,23 +22,26 @@ data Currency = Currency {
     cDecimalSep :: T.Text, -- The symbol for the currency decimal separator.
     cNbOfDecimal :: Int, -- How many decimal place for this currency.
     cSymbol :: T.Text, -- The symbol of the currency.
-    cSymbolBeforeAmount :: Bool -- Where to place the symbol, before or after the amount.
+    cSymbolBeforeAmount :: Bool, -- Where to place the symbol, before or after the amount.
+    cSymbolInsertSpace :: Bool -- If we have to put space between the amount and the currency symbol.
     }
     deriving (Eq, Show)
 
 instance ToJSON Currency where
-  toJSON (Currency name sep nbDec sym symBefore) =
+  toJSON (Currency name sep nbDec sym symBefore symSpace) =
         object ["Name" .= name, 
                 "Decimal separator" .= sep,
                 "Nb of decimal" .= nbDec,
                 "Symbol" .= sym,
-                "Symbol before amount" .= symBefore]
-  toEncoding (Currency name sep nbDec sym symBefore) =
+                "Symbol before amount" .= symBefore,
+                "Space between symbol and amount" .= symSpace]
+  toEncoding (Currency name sep nbDec sym symBefore symSpace) =
         pairs  ("Name" .= name <>
                 "Decimal separator" .= sep <>
                 "Nb of decimal" .= nbDec <>
                 "Symbol" .= sym <>
-                "Symbol before amount" .= symBefore)
+                "Symbol before amount" .= symBefore <>
+                "Space between symbol and amount" .= symSpace)
               
 instance FromJSON Currency where
     parseJSON = withObject "Currency" $ \v -> Currency
@@ -47,3 +50,4 @@ instance FromJSON Currency where
         <*> v .: "Nb of decimal"
         <*> v .: "Symbol"
         <*> v .: "Symbol before amount"
+        <*> v .: "Space between symbol and amount"
