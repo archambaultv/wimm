@@ -13,7 +13,7 @@ following planned or implemented functionaly :
   - [ ] Income Statement
   - [ ] Trial Balance
 - [ ] Easy imports of bank CSV
-  - [ ] Configurable via JSON file
+  - [ ] Configurable via JSON/YAML file
   - [ ] Deduplication of transactions
 
 wimm is not like other plain text accouting program in the sense that it does
