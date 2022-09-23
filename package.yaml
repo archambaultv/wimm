@@ -26,6 +26,7 @@ dependencies:
 - aeson
 - time
 - optparse-applicative
+- cassava
 
 ghc-options:
 - -Wall

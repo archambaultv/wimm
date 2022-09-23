@@ -21,9 +21,13 @@ import Wimm.CLI.Command
 journalFile :: Parser String
 journalFile = argument str (metavar "JOURNAL-FILE" <> help "The journal file")
 
+csvFile :: Parser String
+csvFile = argument str (metavar "CSV-FILE" <> help "The csv file")
+
 transactionsCommand :: Parser Command
 transactionsCommand = Command
                    <$> journalFile
+                   <*> csvFile
 
 transactionsInfo :: ParserInfo Command
 transactionsInfo = info (transactionsCommand <**> helper)
