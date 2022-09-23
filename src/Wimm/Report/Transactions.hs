@@ -15,6 +15,7 @@ module Wimm.Report.Transactions
 where
 
 import qualified Data.Text as T
+import qualified Data.HashMap.Strict as HM
 import Wimm.Report.Report
 import Wimm.Journal
 
@@ -35,4 +36,11 @@ transactionReport _ journal =
               ctp = tCounterParty txn
               comment = tComment txn
               tags = T.intercalate "|" $ tTags txn
-          in [no,date,pAccount p,"",showAmount (jCurrency journal) (pAmount p),ctp,comment,tags] : report
+              acc = pAccount p
+              accNo = accNoMap HM.! acc
+          in [no,date,acc,accNo,showAmount (jCurrency journal) (pAmount p),ctp,comment,tags] : report
+
+        -- Key :: Account identifier
+        -- Value :: Account number as text
+        accNoMap :: HM.HashMap T.Text T.Text
+        accNoMap = fmap (T.pack . show . aNumber) $ accountMap journal

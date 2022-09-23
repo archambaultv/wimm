@@ -15,7 +15,8 @@ module Wimm.Report.Report
   ReportPeriod,
   ReportParams(..),
   writeReport,
-  toISO8601
+  toISO8601,
+  accountMap
   )
 where
 
@@ -25,6 +26,8 @@ import qualified Data.Csv as C
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
+import qualified Data.HashMap.Strict as HM
+import Wimm.Journal
 
 -- | A report is a two dimensionnal array, much like an spreedsheet containing text
 type Report = [ReportRow]
@@ -49,3 +52,9 @@ writeReport path c report =
 -- | Formats a date for reporting
 toISO8601 :: Day -> String
 toISO8601 = formatTime defaultTimeLocale (iso8601DateFormat Nothing)
+
+-- | Returns a map from account identifier to account data type
+accountMap :: Journal -> HM.HashMap T.Text Account
+accountMap journal = HM.fromList
+               $ map (\a -> (aIdentifier a, a))
+               $ journalAccounts journal

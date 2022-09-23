@@ -9,7 +9,8 @@
 -- This module defines what is a journal, the file read by wimm. 
 
 module Wimm.Journal.Journal
-    ( Journal(..)
+    ( Journal(..),
+      journalAccounts
     ) where
 
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs)
@@ -94,3 +95,7 @@ instance FromJSON Journal where
         <*> v .: "Expense accounts"
         <*> v .: "Transactions"
         <*> v .: "CSV delimiter"
+
+-- | Returns the list of all accounts
+journalAccounts :: Journal -> [Account]
+journalAccounts j = jAsset j ++ jLiability j ++ jEquity j ++ jRevenue j ++ jExpense j

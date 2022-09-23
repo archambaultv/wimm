@@ -27,6 +27,7 @@ dependencies:
 - time
 - optparse-applicative
 - cassava
+- unordered-containers
 
 ghc-options:
 - -Wall
