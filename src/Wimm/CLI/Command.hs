@@ -14,8 +14,7 @@ module Wimm.CLI.Command
   runCommand
 ) where
 
-import Data.Aeson (eitherDecode')
-import qualified Data.ByteString.Lazy as B
+import Data.Yaml (decodeFileEither, ParseException)
 import Wimm.Journal
 import Wimm.Report
 
@@ -28,9 +27,8 @@ data Command = Command {
 -- | How to execute the CLI commands
 runCommand :: Command -> IO ()
 runCommand c = do
-  input <- B.readFile (cJournalFile c)
-  let x = eitherDecode' input :: Either String Journal
-  case x of
-    Left err -> putStrLn err
+  input <- decodeFileEither (cJournalFile c) :: IO (Either ParseException Journal)
+  case input of
+    Left err -> putStrLn (show err)
     Right journal -> writeReport (cCsvFile c) (jCsvSeparator journal)
                    $ transactionReport (Nothing, Nothing) journal
