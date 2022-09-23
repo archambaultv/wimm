@@ -25,14 +25,14 @@ transactionReport _ journal =
   in header : foldr serializeTxn [] numberedTxns
 
   where serializeTxn ::  (Int, Transaction) -> Report -> Report
-        serializeTxn (n, txn) report = 
+        serializeTxn t report = foldr (serializePosting t) [] (tPostings (snd t)) 
+                              ++ report
+
+        serializePosting :: (Int, Transaction) -> Posting -> Report -> Report
+        serializePosting (n, txn) p report =
           let no = T.pack $ show n
               date = T.pack $ toISO8601 $ tDate txn
               ctp = tCounterParty txn
               comment = tComment txn
               tags = T.intercalate "|" $ tTags txn
-          in foldr (serializePosting no date ctp comment tags) [] (tPostings txn) ++ report
-
-        serializePosting :: T.Text -> T.Text -> T.Text -> T.Text -> T.Text -> Posting -> Report -> Report
-        serializePosting no date ctp comment tags p report =
-          [no,date,pAccount p,"",showAmount (jCurrency journal) (pAmount p),ctp,comment,tags] : report
+          in [no,date,pAccount p,"",showAmount (jCurrency journal) (pAmount p),ctp,comment,tags] : report
