@@ -15,9 +15,12 @@ module Wimm.CLI.Command
 ) where
 
 import Data.Yaml (decodeFileEither, ParseException, encodeFile)
+import Data.Aeson (eitherDecodeFileStrict)
 import Wimm.Journal
 import Wimm.Import.Csv
 import Wimm.Report
+import Data.Char (toLower)
+import System.FilePath (takeExtension)
 
 -- | The commands accepted by the command line interface
 data Command = CTxnReport FilePath FilePath
@@ -56,10 +59,18 @@ runCommand (CTxnImport csvDescPath csvDataPath outputPath) = do
 
 runReport :: FilePath -> FilePath -> (Journal -> Report) -> IO ()
 runReport journalPath reportPath mkReport = do
-  input <- decodeFileEither journalPath :: IO (Either ParseException Journal)
+  input <- decodeJournal journalPath
   case input of
     Left err -> putStrLn (show err)
     Right journal -> do
       let report = mkReport journal
       let csvSep = jCsvSeparator $ jReportParams journal
       writeReport reportPath csvSep report
+
+-- Decodes with pure JSON for .json file. Any other extension is decoded with in
+-- YAML
+decodeJournal :: FilePath -> IO (Either String Journal)
+decodeJournal path =
+  case map toLower (takeExtension path) of
+    ".json" -> eitherDecodeFileStrict path :: IO (Either String Journal)
+    _ -> fmap (either (Left . show) Right) (decodeFileEither path :: IO (Either ParseException Journal))

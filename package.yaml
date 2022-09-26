@@ -33,6 +33,7 @@ dependencies:
 - scientific
 - vector
 - containers
+- filepath
 
 ghc-options:
 - -Wall
