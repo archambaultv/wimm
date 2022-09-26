@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 -- |
 -- Module      :  Wimm.Import.Csv
 -- Copyright   :  © 2022 Vincent Archambault
@@ -18,6 +20,7 @@ module Wimm.Import.Csv
   )
 where
 
+import GHC.Generics
 import Data.Char (ord)
 import Data.Maybe (catMaybes)
 import Data.Time (Day, parseTimeM, defaultTimeLocale, iso8601DateFormat)
@@ -26,7 +29,8 @@ import qualified Data.Text as T
 import qualified Data.Csv as Csv
 import qualified Data.Vector as V
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
-                   (.:?), (.!=), Value, Encoding)
+                   Value, Encoding,  Options(..),toEncoding, genericToEncoding, 
+                   genericToJSON, genericParseJSON, defaultOptions)
 import Wimm.Journal
 
 -- | Defines how to import transactions from a csv bank statement
@@ -39,7 +43,7 @@ data ImportCsv = ImportCsv {
   iImportNullTxn :: Bool, -- Should we import transactions with 0 amount
   iHeader :: CsvHeader, -- The header, so we can find date, amount, etc.
   iRules :: [CsvRule] -- Rules to apply to each transactions
-} deriving (Eq, Show)
+} deriving (Eq, Show, Generic)
 
 -- The column numbers of the basic info we need
 data CsvHeader = CsvHeader {
@@ -47,7 +51,7 @@ data CsvHeader = CsvHeader {
   csvHeaderAmountIn :: Int,
   csvHeaderAmountOut :: Int,
   cvsHeaderStatementDesc :: Int
-} deriving (Eq, Show)
+} deriving (Eq, Show, Generic)
 
 -- The basic data we extract from a CSV line. The rules will
 -- transforms this into a transaction
@@ -64,10 +68,10 @@ data CsvLine = CsvLine {
 data CsvRule = CsvRule {
   csvRuleCriteria :: [CsvLineCriterion],
   csvRuleAccount2 :: T.Text,
-  csvRuleCounterParty :: T.Text,
-  csvRuleTags :: [T.Text],
-  csvRuleComment :: T.Text
-} deriving (Eq, Show)
+  csvRuleCounterParty :: Maybe T.Text,
+  csvRuleTags :: Maybe [T.Text],
+  csvRuleComment :: Maybe T.Text
+} deriving (Eq, Show, Generic)
 
 -- How to match a CsvLine
 data CsvLineCriterion = MatchStatementDesc T.Text
@@ -89,9 +93,9 @@ matchCriteria l (MatchDate d) = csvLineDate l == d
 -- after the customs rules
 defaultRules :: ImportCsv -> [CsvRule]
 defaultRules iCsv = [
-  CsvRule [AmountBelow 0] (iAccount2Negative iCsv) "" [] "",
-  CsvRule [AmountAbove 0] (iAccount2Positive iCsv) "" [] "",
-  CsvRule [MatchAmount 0] (iAccount2Negative iCsv) "" [] ""
+  CsvRule [AmountBelow 0] (iAccount2Negative iCsv) Nothing Nothing Nothing,
+  CsvRule [AmountAbove 0] (iAccount2Positive iCsv) Nothing Nothing Nothing,
+  CsvRule [MatchAmount 0] (iAccount2Negative iCsv) Nothing Nothing Nothing
   ]
 
 -- The first rule that matches
@@ -120,7 +124,7 @@ applyRules iCsv csvLine =
                           [Posting Nothing (csvLineAccount1 csvLine) (csvLineAmount csvLine),
                            Posting Nothing (csvRuleAccount2 csvRule) (negate $ csvLineAmount csvLine) ]
                           (csvRuleComment csvRule)
-                          (csvLineStatementDesc csvLine)
+                          (Just $ csvLineStatementDesc csvLine)
 
 parseISO8601M :: String -> Maybe Day
 parseISO8601M s = parseTimeM False defaultTimeLocale (iso8601DateFormat Nothing) s
@@ -155,106 +159,94 @@ importCsv iCsv path = do
 
 -- ToJSON and FromJason instances
 instance ToJSON ImportCsv where
-  toJSON (ImportCsv csvSep acc1 acc2N acc2P skipHeader importNull header rules) =
-        object $ ["Csv separator" .= csvSep,
-                  "Account 1" .= acc1,
-                  "Account 2 if amount is negative" .= acc2N,
-                  "Account 2 if amount is positive" .= acc2P,
-                  "Skip header" .= skipHeader,
-                  "Import transaction when amount is zero" .= importNull,
-                  "Header" .= header] ++
-                (if null rules then [] else ["Rules" .= rules])
-  toEncoding (ImportCsv csvSep acc1 acc2N acc2P skipHeader importNull header rules) =
-        pairs $ "Csv separator" .= csvSep <>
-                  "Account 1" .= acc1 <>
-                  "Account 2 if amount is negative" .= acc2N <>
-                  "Account 2 if amount is positive" .= acc2P <>
-                  "Skip header" .= skipHeader <>
-                  "Import transaction when amount is zero" .= importNull <>
-                  "Header" .= header <>
-                (if null rules then mempty else "Rules" .= rules)
+  toJSON = genericToJSON customOptionsImportCsv
+  toEncoding = genericToEncoding customOptionsImportCsv
 
 instance FromJSON ImportCsv where
-    parseJSON = withObject "ImportCsv" $ \v -> ImportCsv
-        <$> v .:? "Csv separator" .!= ','
-        <*> v .: "Account 1"
-        <*> v .: "Account 2 if amount is negative"
-        <*> v .: "Account 2 if amount is positive"
-        <*> v .: "Skip header"
-        <*> v .:? "Import transaction when amount is zero" .!= True
-        <*> v .: "Header"
-        <*> v .:? "Rules" .!= []
+  parseJSON = genericParseJSON customOptionsImportCsv
+
+customOptionsImportCsv :: Options
+customOptionsImportCsv = defaultOptions{
+  fieldLabelModifier = fieldNameImportCsv
+}
+
+fieldNameImportCsv :: String -> String
+fieldNameImportCsv "iAccount1" = "account 1"
+fieldNameImportCsv "iAccount2Negative" = "account 2 if amount is negative"
+fieldNameImportCsv "iAccount2Positive" = "account 2 if amount is positive"
+fieldNameImportCsv "iSkipHeader" = "skip header"
+fieldNameImportCsv "import transaction when amount is zero" = "name"
+fieldNameImportCsv "iHeader" = "header"
+fieldNameImportCsv "iRules" = "rules"
+fieldNameImportCsv x = x
 
 
 instance ToJSON CsvHeader where
-  toJSON (CsvHeader date amountIn amountOut desc) =
-        object ["Date" .= date,
-                  "Amount in" .= amountIn,
-                  "Amount out" .= amountOut,
-                  "Statement description" .= desc]
-  toEncoding (CsvHeader date amountIn amountOut desc) =
-        pairs ("Date" .= date <>
-              "Amount in" .= amountIn <>
-              "Amount out" .= amountOut <>
-              "Statement description" .= desc)
+  toJSON = genericToJSON customOptionsCsvHeader
+  toEncoding = genericToEncoding customOptionsCsvHeader
 
 instance FromJSON CsvHeader where
-    parseJSON = withObject "CsvHeader" $ \v -> CsvHeader
-        <$> v .: "Date"
-        <*> v .: "Amount in"
-        <*> v .: "Amount out"
-        <*> v .: "Statement description"
+  parseJSON = genericParseJSON customOptionsCsvHeader
+
+customOptionsCsvHeader :: Options
+customOptionsCsvHeader = defaultOptions{
+  fieldLabelModifier = fieldNameCsvHeader
+}
+
+fieldNameCsvHeader :: String -> String
+fieldNameCsvHeader "csvHeaderDate" = "date"
+fieldNameCsvHeader "csvHeaderAmountIn" = "amount in"
+fieldNameCsvHeader "csvHeaderAmountOut" = "amount out"
+fieldNameCsvHeader "cvsHeaderStatementDesc" = "statement description"
+fieldNameCsvHeader x = x
 
 
 instance ToJSON CsvRule where
-  toJSON (CsvRule criteria acc2 ccp tags comment) =
-        object $ ["Criteria" .= criteria,
-                  "Account 2" .= acc2] ++
-                (if T.null ccp then [] else ["Counterparty" .= ccp]) ++
-                (if null tags then [] else ["Tags" .= tags]) ++
-                (if T.null comment then [] else ["Comment" .= comment])
-
-  toEncoding (CsvRule criteria acc2 ccp tags comment) =
-        pairs $ "Criteria" .= criteria <>
-                "Account 2" .= acc2 <>
-                (if T.null ccp then mempty else "Counterparty" .= ccp) <>
-                (if null tags then mempty else "Tags" .= tags) <>
-                (if T.null comment then mempty else "Comment" .= comment)
+  toJSON = genericToJSON customOptionsCsvRule
+  toEncoding = genericToEncoding customOptionsCsvRule
 
 instance FromJSON CsvRule where
-    parseJSON = withObject "CsvRule" $ \v -> CsvRule
-        <$> v .: "Criteria"
-        <*> v .: "Account 2"
-        <*> v .:? "Counterparty" .!= ""
-        <*> v .:? "Tags" .!= []
-        <*> v .:? "Comment" .!= ""
+  parseJSON = genericParseJSON customOptionsCsvRule
+
+customOptionsCsvRule :: Options
+customOptionsCsvRule = defaultOptions{
+  fieldLabelModifier = fieldNameCsvRule
+}
+
+fieldNameCsvRule :: String -> String
+fieldNameCsvRule "csvRuleCriteria" = "criteria"
+fieldNameCsvRule "csvRuleAccount2" = "account 2"
+fieldNameCsvRule "csvRuleCounterParty" = "counterparty"
+fieldNameCsvRule "csvRuleTags" = "tags"
+fieldNameCsvRule "csvRuleComment" = "comment"
+fieldNameCsvRule x = x
 
 instance ToJSON CsvLineCriterion where
-  toJSON (MatchStatementDesc t) = mkCriterion "Statement description" t
-  toJSON (MatchAmount amnt) = mkCriterion "Amount" (toScientific amnt)
-  toJSON (AmountAbove limit) = mkCriterion "Amount above" (toScientific limit)
-  toJSON (AmountBelow limit) = mkCriterion "Amount below" (toScientific limit)
-  toJSON (MatchDate d) = mkCriterion "Date" d
+  toJSON (MatchStatementDesc t) = mkCriterion "statement description" t
+  toJSON (MatchAmount amnt) = mkCriterion "amount" (toScientific amnt)
+  toJSON (AmountAbove limit) = mkCriterion "amount above" (toScientific limit)
+  toJSON (AmountBelow limit) = mkCriterion "amount below" (toScientific limit)
+  toJSON (MatchDate d) = mkCriterion "date" d
 
-  toEncoding (MatchStatementDesc t) = mkCriterion2 "Statement description" t
-  toEncoding (MatchAmount amnt) = mkCriterion2 "Amount" (toScientific amnt)
-  toEncoding (AmountAbove limit) = mkCriterion2 "Amount above" (toScientific limit)
-  toEncoding (AmountBelow limit) = mkCriterion2 "Amount below" (toScientific limit)
-  toEncoding (MatchDate d) = mkCriterion2 "Date" d
+  toEncoding (MatchStatementDesc t) = mkCriterion2 "statement description" t
+  toEncoding (MatchAmount amnt) = mkCriterion2 "amount" (toScientific amnt)
+  toEncoding (AmountAbove limit) = mkCriterion2 "amount above" (toScientific limit)
+  toEncoding (AmountBelow limit) = mkCriterion2 "amount below" (toScientific limit)
+  toEncoding (MatchDate d) = mkCriterion2 "date" d
 
 mkCriterion :: (ToJSON a) => String -> a -> Value
-mkCriterion s a = object ["Criterion" .= s, "Value" .= a]
+mkCriterion s a = object ["criterion" .= s, "value" .= a]
 
 mkCriterion2 :: (ToJSON a) => String -> a -> Encoding
-mkCriterion2 s a = pairs ("Criterion" .= s <> "Value" .= a)
+mkCriterion2 s a = pairs ("criterion" .= s <> "value" .= a)
 
 instance FromJSON CsvLineCriterion where
-    parseJSON = withObject "CsvLineCriterion" $ \v -> do
-      c <- v .: "Criterion"
+    parseJSON = withObject "csv line criterion" $ \v -> do
+      c <- v .: "criterion"
       case (c :: String) of
-        "Statement description" -> MatchStatementDesc <$> v .: "Value"
-        "Amount" -> MatchAmount <$> fmap fromScientific (v .: "Value")
-        "Amount above" -> AmountAbove <$> fmap fromScientific (v .: "Value")
-        "Amount below" -> AmountBelow <$> fmap fromScientific (v .: "Value")
-        "Date" -> MatchDate <$> v .: "Value"
+        "statement description" -> MatchStatementDesc <$> v .: "value"
+        "amount" -> MatchAmount <$> fmap fromScientific (v .: "value")
+        "amount above" -> AmountAbove <$> fmap fromScientific (v .: "value")
+        "amount below" -> AmountBelow <$> fmap fromScientific (v .: "value")
+        "date" -> MatchDate <$> v .: "value"
         _ -> fail ("Invalid criterion '" ++ c ++ "'")

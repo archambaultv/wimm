@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 -- |
 -- Module      :  Wimm.Journal.Account
 -- Copyright   :  © 2022 Vincent Archambault
@@ -9,6 +11,7 @@
 -- This module defines what is a account.
 module Wimm.Journal.Account
     ( AccountType(..),
+      aDisplayName,
       isBalanceSheetType,
       isIncomeStatementType,
       isCreditType,
@@ -17,8 +20,9 @@ module Wimm.Journal.Account
       Account(..)
     ) where
 
-import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
-                   (.:?), (.!=))
+import GHC.Generics
+import Data.Aeson (ToJSON(..), FromJSON(..), Options(..),toEncoding, genericToEncoding, 
+                   genericToJSON, genericParseJSON, defaultOptions)
 import qualified Data.Text as T
 
 -- | The top level grouping of an account. Must be Asset, Liability,
@@ -54,29 +58,32 @@ type Identifier = T.Text
 data Account = Account {
   aIdentifier :: Identifier, -- Unique to each account. The identifier is used 
                          -- when other JSON object what to refer to this account.
-  aDisplayName :: T.Text, -- Many accounts can have the same display name on the reports.
+  aDisplayNameM :: Maybe T.Text, -- Many accounts can have the same display name on the reports.
   aNumber :: Int -- Provided by the user. Must be different for each account. 
   -- For now let us use flat structure
   -- aParent :: T.Text -- Identifier of the parent, as defined in the account CSV files
 }
-  deriving (Show)
+  deriving (Eq, Show, Generic)
 
-instance Eq Account where
-  (==) a1 a2 = aNumber a1 == aNumber a2
+-- | Returns the provided display name or the identifier if none was provided
+aDisplayName :: Account -> T.Text
+aDisplayName (Account ident Nothing _) = ident
+aDisplayName (Account _ (Just n) _) = n
 
 instance ToJSON Account where
-  toJSON (Account ident name number) =
-        object $ ["Identifier" .= ident, 
-                 "Number" .= number] ++
-                 (if T.null name then [] else ["Name" .= name])
-  toEncoding (Account ident name number) =
-        pairs $ "Identifier" .= ident <>
-                "Number" .= number <>
-                (if T.null name then mempty else "Name" .= name)
-              
+  toJSON = genericToJSON customOptions
+  toEncoding = genericToEncoding customOptions
+
 instance FromJSON Account where
-    parseJSON = withObject "Account" $ \v -> do
-        ident <- v .: "Identifier"
-        name <- v .:? "Name" .!= ident
-        num <- v .: "Number"
-        return $ Account ident name num
+  parseJSON = genericParseJSON customOptions
+
+customOptions :: Options
+customOptions = defaultOptions{
+  fieldLabelModifier = fieldName
+}
+
+fieldName :: String -> String
+fieldName "aIdentifier" = "identifier"
+fieldName "aDisplayNameM" = "name"
+fieldName "aNumber" = "number"
+fieldName x = x

@@ -49,7 +49,7 @@ budgetReport (startD, endD) j budget =
 
         -- Serialize each account type tree and a special one for the budget
         budgetTree :: Tree Account
-        budgetTree = Node (Account "Budget" "Budget" 0) budgetAcc
+        budgetTree = Node (Account "Budget" Nothing 0) budgetAcc
 
         budgetAccReport :: Report
         budgetAccReport = snd $ foldTree alg budgetTree

@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 -- |
 -- Module      :  Wimm.Journal.Journal
 -- Copyright   :  © 2022 Vincent Archambault
@@ -16,8 +18,10 @@ module Wimm.Journal.Journal
     ) where
 
 import qualified Data.Text as T
+import GHC.Generics
 import Data.Tree (Tree(..), flatten, foldTree)
-import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,(.:?), (.!=))
+import Data.Aeson (ToJSON(..), FromJSON(..), Options(..),toEncoding, genericToEncoding, 
+                   genericToJSON, genericParseJSON, defaultOptions)
 import Wimm.Journal.Account
 import Wimm.Journal.ReportParameters
 import Wimm.Journal.Transaction
@@ -57,53 +61,35 @@ data Journal = Journal {
   -- | The budgets
   jBudgets :: [Budget]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON Journal where
-  toJSON (Journal open earn comp ffm reportParams asset lia equi rev expe txns defBud budgets) =
-        object $ (if T.null comp then [] else ["Company name" .= comp]) ++
-               ["Opening balance account" .= open, 
-                "Earnings account" .= earn,
-                "First fiscal month" .= ffm,
-                "Csv Report parameters" .= reportParams, 
-                "Asset accounts" .= asset,
-                "Liability accounts" .= lia,
-                "Equity accounts" .= equi,
-                "Revenue accounts" .= rev,
-                "Expense accounts" .= expe,
-                "Transactions" .= txns,
-                "Default budget" .= defBud,
-                "Budgets" .= budgets]
-  toEncoding (Journal open earn comp ffm reportParams  asset lia equi rev expe txns defBud budgets) =
-        pairs $ (if T.null comp then mempty else "Company name" .= comp) <>
-                "Opening balance account" .= open <>
-                "Earnings account" .= earn <>
-                "First fiscal month" .= ffm <>
-                "Csv Report parameters" .= reportParams <>
-                "Asset accounts" .= asset <>
-                "Liability accounts" .= lia <>
-                "Equity accounts" .= equi <>
-                "Revenue accounts" .= rev <>
-                "Expense accounts" .= expe <>
-                "Transactions" .= txns <>
-                "Default budget" .= defBud <>
-                "Budgets" .= budgets
+  toJSON = genericToJSON customOptions
+  toEncoding = genericToEncoding customOptions
 
 instance FromJSON Journal where
-    parseJSON = withObject "Journal" $ \v -> Journal
-        <$> v .: "Opening balance account"
-        <*> v .: "Earnings account"
-        <*> v .:? "Company name" .!= ""
-        <*> v .:? "First fiscal month" .!= 1
-        <*> v .: "Csv Report parameters"
-        <*> v .: "Asset accounts"
-        <*> v .: "Liability accounts"
-        <*> v .: "Equity accounts"
-        <*> v .: "Revenue accounts"
-        <*> v .: "Expense accounts"
-        <*> v .: "Transactions"
-        <*> v .: "Default budget"
-        <*> v .: "Budgets"
+  parseJSON = genericParseJSON customOptions
+
+customOptions :: Options
+customOptions = defaultOptions{
+  fieldLabelModifier = fieldName
+}
+
+fieldName :: String -> String
+fieldName "jOpeningBalanceAccount" = "opening balance account"
+fieldName "jEarningsAccount" = "earnings account"
+fieldName "jCompanyName" = "company name"
+fieldName "jFirstFiscalMonth" = "first fiscal month"
+fieldName "jReportParams" = "csv report parameters"
+fieldName "jAsset" = "asset accounts"
+fieldName "jLiability" = "liability accounts"
+fieldName "jEquity" = "equity accounts"
+fieldName "jRevenue" = "revenue accounts"
+fieldName "jExpense" = "expense accounts"
+fieldName "jTransactions" = "transactions"
+fieldName "jDefaultBudget" = "default budget"
+fieldName "jBudgets" = "budgets"
+fieldName x = x
 
 -- | Returns the list of all accounts that appears on the income statement
 incomeStatementAccounts :: Journal -> [Account]

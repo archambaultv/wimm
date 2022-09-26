@@ -39,6 +39,6 @@ customOptions = defaultOptions{
 }
 
 fieldName :: String -> String
-fieldName "bName" = "Name"
-fieldName "bAccounts" = "Accounts"
+fieldName "bName" = "name"
+fieldName "bAccounts" = "accounts"
 fieldName x = x

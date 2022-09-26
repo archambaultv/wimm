@@ -16,7 +16,6 @@ module Wimm.Journal.Posting
 import Data.Time (Day)
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
                    (.:?))
-import qualified Data.Text as T
 import qualified Data.HashMap.Strict as HM
 import Wimm.Journal.Amount
 import Wimm.Journal.Account
@@ -36,17 +35,17 @@ balanceMap = HM.fromListWith (+)
 
 instance ToJSON Posting where
   toJSON (Posting balDate acc amount) =
-        object $ ["Account" .= acc,
-                  "Amount" .= toScientific amount] ++
-                 (case balDate of {Nothing -> []; (Just b) -> ["Balance date" .= b]})
+        object $ ["account" .= acc,
+                  "amount" .= toScientific amount] ++
+                 (case balDate of {Nothing -> []; (Just b) -> ["balance date" .= b]})
                
   toEncoding (Posting balDate acc amount) =
-        pairs $ "Account" .= acc <>
-                "Amount" .= toScientific amount <>
-                (case balDate of {Nothing -> mempty; (Just b) -> "Balance date" .= b})
+        pairs $ "account" .= acc <>
+                "amount" .= toScientific amount <>
+                (case balDate of {Nothing -> mempty; (Just b) -> "balance date" .= b})
               
 instance FromJSON Posting where
     parseJSON = withObject "Posting" $ \v -> Posting
-      <$> (v .:? "Balance date")
-      <*> v .: "Account"
-      <*> fmap fromScientific (v .: "Amount")
+      <$> (v .:? "balance date")
+      <*> v .: "account"
+      <*> fmap fromScientific (v .: "amount")

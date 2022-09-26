@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 -- |
 -- Module      :  Wimm.Journal.ReportParameters
 -- Copyright   :  © 2022 Vincent Archambault
@@ -12,8 +14,9 @@ module Wimm.Journal.ReportParameters
     ( JournalReportParameters(..)
     ) where
 
-import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, pairs,
-                   (.:?),(.!=))
+import GHC.Generics
+import Data.Aeson (ToJSON(..), FromJSON(..), Options(..),toEncoding, genericToEncoding, 
+                   genericToJSON, genericParseJSON, defaultOptions)
 
 data JournalReportParameters = JournalReportParameters {
   -- | The decimal separator to use when writing amounts in the reports
@@ -21,18 +24,21 @@ data JournalReportParameters = JournalReportParameters {
 
   -- | Csv separator to use when writing reports
   jCsvSeparator :: Char
-} deriving (Eq, Show)
+} deriving (Eq, Show, Generic)
 
 instance ToJSON JournalReportParameters where
-  toJSON (JournalReportParameters currSep csvSep) =
-        object ["Decimal separator" .= currSep,
-                "Csv delimiter" .= csvSep]
-                
-  toEncoding (JournalReportParameters currSep csvSep) =
-        pairs $ "Decimal separator" .= currSep <>
-                "Csv delimiter" .= csvSep
+  toJSON = genericToJSON customOptions
+  toEncoding = genericToEncoding customOptions
 
 instance FromJSON JournalReportParameters where
-    parseJSON = withObject "Report parameters" $ \v -> JournalReportParameters
-        <$> v .:? "Decimal separator" .!= '.'
-        <*> v .:? "Csv delimiter" .!= ','
+  parseJSON = genericParseJSON customOptions
+
+customOptions :: Options
+customOptions = defaultOptions{
+  fieldLabelModifier = fieldName
+}
+
+fieldName :: String -> String
+fieldName "jDecimalSep" = "decimal separator"
+fieldName "jCsvSeparator" = "csv column separator"
+fieldName x = x
