@@ -34,7 +34,7 @@ incomeStatementReport (startD, endD) j = concat [revenueReport, expenseReport]
         postings :: [Posting]
         postings = filter (rIsIncomeStatementType . (accMap HM.!) . pAccount)
                  $ concatMap (map snd . txnToPostings)
-                 $ filter (\t -> not (afterEndDate t || beforeStartDate t)) 
+                 $ filter (\t -> not (afterEndDate endD t || beforeStartDate startD t)) 
                  $ jTransactions j
 
         -- Serialize each account type tree
@@ -61,19 +61,8 @@ incomeStatementReport (startD, endD) j = concat [revenueReport, expenseReport]
           in (amnt, topRow : childrenRow ++ [finalRow])
 
         -- Helper functions
-        afterEndDate :: Transaction -> Bool
-        afterEndDate t = case endD of
-            Nothing -> False
-            (Just d) -> tDate t > d
-
-        beforeStartDate :: Transaction -> Bool
-        beforeStartDate t = case startD of
-            Nothing -> False
-            (Just d) -> tDate t < d
-
-        balanceMap :: HM.HashMap Identifier Amount
-        balanceMap = HM.fromListWith (+) 
-                   $ map (\p -> (pAccount p, pAmount p)) postings
+        balMap :: HM.HashMap Identifier Amount
+        balMap = balanceMap postings
 
         accountAmount :: Identifier -> Maybe Amount
-        accountAmount ident = HM.lookup ident balanceMap
+        accountAmount ident = HM.lookup ident balMap

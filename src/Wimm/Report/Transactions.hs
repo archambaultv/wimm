@@ -20,9 +20,11 @@ import Wimm.Report.Report
 import Wimm.Journal
 
 transactionReport :: ReportPeriod -> Journal -> Report
-transactionReport _ journal =
+transactionReport (startD, endD) journal =
   let header = ["Id","Date","Account","Account number","Amount", "Counterparty","Comment","Tags"]
-      numberedTxns = zip [1..] (jTransactions journal) :: [(Int, Transaction)]
+      txns = filter (\t -> not (afterEndDate endD t || beforeStartDate startD t)) 
+           $ jTransactions journal
+      numberedTxns = zip [1..] txns :: [(Int, Transaction)]
   in header : foldr serializeTxn [] numberedTxns
 
   where serializeTxn ::  (Int, Transaction) -> Report -> Report

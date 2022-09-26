@@ -22,6 +22,7 @@ import Wimm.Report
 -- | The commands accepted by the command line interface
 data Command = CTxnReport FilePath FilePath
              | CBalSheetReport FilePath FilePath
+             | CBudgetReport FilePath FilePath
              | CIncomeStatementReport FilePath FilePath
              | CTxnImport FilePath FilePath FilePath
 
@@ -32,6 +33,15 @@ runCommand (CTxnReport journalPath reportPath) =
 
 runCommand (CBalSheetReport journalPath reportPath) =
   runReport journalPath reportPath (balanceSheetReport (Nothing, Nothing))
+
+runCommand (CBudgetReport journalPath reportPath) =
+  runReport journalPath reportPath 
+  (\j -> 
+    let budgets = filter (\b -> bName b == (jDefaultBudget j)) 
+                $ jBudgets j
+    in if null budgets
+       then []
+       else budgetReport (Nothing, Nothing) j (head budgets))
 
 runCommand (CIncomeStatementReport journalPath reportPath) =
   runReport journalPath reportPath (incomeStatementReport (Nothing, Nothing))

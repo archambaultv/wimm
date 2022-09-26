@@ -34,18 +34,18 @@ balanceSheetReport (startD, endD) j = concat [assetReport, liabilityReport, equi
         postings :: [(Transaction, Posting)]
         postings = filter (rIsBalanceSheetType . (accMap HM.!) . pAccount . snd)
                  $ concatMap txnToPostings
-                 $ filter (not . afterEndDate) 
+                 $ filter (not . afterEndDate endD) 
                  $ jTransactions j
 
         -- Compute opening balance and earnings
         openBalAmnt = negate
                     $ sum
-                    $ map (\(t,p) -> if beforeStartDate t then pAmount p else 0)
+                    $ map (\(t,p) -> if beforeStartDate startD t then pAmount p else 0)
                       postings       
 
         earningAmnt = negate
                     $ sum
-                    $ map (\(t,p) -> if beforeStartDate t then 0 else pAmount p)
+                    $ map (\(t,p) -> if beforeStartDate endD t then 0 else pAmount p)
                       postings 
 
         -- Serialize each account type tree
@@ -75,29 +75,18 @@ balanceSheetReport (startD, endD) j = concat [assetReport, liabilityReport, equi
           in (amnt, topRow : childrenRow ++ [finalRow])
 
         -- Helper functions
-        afterEndDate :: Transaction -> Bool
-        afterEndDate t = case endD of
-            Nothing -> False
-            (Just d) -> tDate t > d
-
-        beforeStartDate :: Transaction -> Bool
-        beforeStartDate t = case startD of
-            Nothing -> False
-            (Just d) -> tDate t < d
-
-        balanceMap :: HM.HashMap Identifier Amount
-        balanceMap = HM.fromListWith (+) 
-                   $ map ((\p -> (pAccount p, pAmount p)) . snd) postings
+        balMap :: HM.HashMap Identifier Amount
+        balMap = balanceMap (map snd postings)
 
         accountAmount :: Identifier -> Maybe Amount
         accountAmount ident | ident == (jOpeningBalanceAccount j) =
-          case (HM.lookup ident balanceMap) of
+          case (HM.lookup ident balMap) of
             Nothing -> Just openBalAmnt
             (Just x) -> Just (x + openBalAmnt)
         accountAmount ident | ident == (jEarningsAccount j) =
-          case (HM.lookup ident balanceMap) of
+          case (HM.lookup ident balMap) of
             Nothing -> Just earningAmnt
             (Just x) -> Just (x + earningAmnt)
-        accountAmount ident = HM.lookup ident balanceMap
+        accountAmount ident = HM.lookup ident balMap
 
 

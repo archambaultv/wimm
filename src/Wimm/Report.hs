@@ -13,7 +13,8 @@ module Wimm.Report
   module Wimm.Report.Report,
   module Wimm.Report.Transactions,
   module Wimm.Report.BalanceSheet,
-  module Wimm.Report.IncomeStatement
+  module Wimm.Report.IncomeStatement,
+  module Wimm.Report.Budget
   )
 where
 
@@ -21,3 +22,4 @@ import Wimm.Report.Report
 import Wimm.Report.Transactions
 import Wimm.Report.BalanceSheet
 import Wimm.Report.IncomeStatement
+import Wimm.Report.Budget

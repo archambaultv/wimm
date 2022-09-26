@@ -17,6 +17,7 @@ module Wimm.Journal
   module Wimm.Journal.Account,
   module Wimm.Journal.Amount,
   module Wimm.Journal.ReportParameters,
+  module Wimm.Journal.Budget
   )
 where
 
@@ -26,3 +27,5 @@ import Wimm.Journal.Journal
 import Wimm.Journal.Account
 import Wimm.Journal.Amount
 import Wimm.Journal.ReportParameters
+import Wimm.Journal.Budget
+  

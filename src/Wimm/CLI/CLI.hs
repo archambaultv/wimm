@@ -71,9 +71,20 @@ transactionsImportInfo = info (transactionsImport <**> helper)
               (fullDesc
                <> progDesc "Imports transactions from a bank CSV and prints them in a YAML format")
 
+budgetReport :: Parser Command
+budgetReport = CBudgetReport
+                   <$> journalFile
+                   <*> csvFile
+
+budgetReportInfo :: ParserInfo Command
+budgetReportInfo = info (budgetReport <**> helper)
+              (fullDesc
+               <> progDesc "Prints the budget report in a CSV format")
+
 parseCommand :: Parser Command
 parseCommand = subparser
   ( command "balancesheet" balanceSheetReportInfo <>
+    command "budget" budgetReportInfo <>
     command "import" transactionsImportInfo <>
     command "incomestatement" incomeStatementReportInfo <>
     command "transactions" transactionsReportInfo

@@ -9,23 +9,30 @@
 -- This module defines what a posting is.
 module Wimm.Journal.Posting
     ( 
-      Posting(..)
+      Posting(..),
+      balanceMap
     ) where
 
 import Data.Time (Day)
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
                    (.:?))
 import qualified Data.Text as T
+import qualified Data.HashMap.Strict as HM
 import Wimm.Journal.Amount
+import Wimm.Journal.Account
 
 -- | The Posting data type reprensents the change in the balance of an account.
 -- Transactions are made of at least two postings.
 data Posting = Posting
   {
     pBalanceDate :: Maybe Day, -- The date to consider when computing balance assertion
-    pAccount :: T.Text, -- The account identifier
+    pAccount :: Identifier, -- The account identifier
     pAmount :: Amount -- The amount
   } deriving (Eq, Show)
+
+balanceMap :: [Posting] -> HM.HashMap Identifier Amount
+balanceMap = HM.fromListWith (+) 
+           . map (\p -> (pAccount p, pAmount p))
 
 instance ToJSON Posting where
   toJSON (Posting balDate acc amount) =

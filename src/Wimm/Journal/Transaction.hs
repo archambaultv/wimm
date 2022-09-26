@@ -10,7 +10,9 @@
 module Wimm.Journal.Transaction
     ( 
       Transaction(..),
-      txnToPostings
+      txnToPostings,
+      afterEndDate,
+      beforeStartDate
     ) where
 
 import Data.Time (Day)
@@ -29,6 +31,16 @@ data Transaction = Transaction
     tComment :: T.Text,
     tStatementDescription :: T.Text -- This field is use to deduplicate transactions on import
   } deriving (Eq, Show)
+
+afterEndDate :: Maybe Day -> Transaction -> Bool
+afterEndDate endD t = case endD of
+    Nothing -> False
+    (Just d) -> tDate t > d
+
+beforeStartDate :: Maybe Day -> Transaction -> Bool
+beforeStartDate startD t = case startD of
+    Nothing -> False
+    (Just d) -> tDate t < d
 
 instance ToJSON Transaction where
   toJSON (Transaction date cc tags postings comment desc) =

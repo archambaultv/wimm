@@ -10,15 +10,18 @@
 
 module Wimm.Journal.Journal
     ( Journal(..),
-      incomeStatementAccounts
+      incomeStatementAccounts,
+      budgetAccounts,
+      accountForest
     ) where
 
 import qualified Data.Text as T
-import Data.Tree (Tree, flatten)
+import Data.Tree (Tree(..), flatten, foldTree)
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,(.:?), (.!=))
 import Wimm.Journal.Account
 import Wimm.Journal.ReportParameters
 import Wimm.Journal.Transaction
+import Wimm.Journal.Budget
 
 -- | The Journal is a file that contains all the financial data (transactions)
 -- and other info like account descriptions needed to process the data
@@ -46,12 +49,18 @@ data Journal = Journal {
   jExpense :: Tree Account,
 
   -- | The transactions.
-  jTransactions :: [Transaction]
+  jTransactions :: [Transaction],
+
+  -- | The default budget
+  jDefaultBudget :: T.Text,
+
+  -- | The budgets
+  jBudgets :: [Budget]
   }
   deriving (Eq, Show)
 
 instance ToJSON Journal where
-  toJSON (Journal open earn comp ffm reportParams asset lia equi rev expe txns) =
+  toJSON (Journal open earn comp ffm reportParams asset lia equi rev expe txns defBud budgets) =
         object $ (if T.null comp then [] else ["Company name" .= comp]) ++
                ["Opening balance account" .= open, 
                 "Earnings account" .= earn,
@@ -62,8 +71,10 @@ instance ToJSON Journal where
                 "Equity accounts" .= equi,
                 "Revenue accounts" .= rev,
                 "Expense accounts" .= expe,
-                "Transactions" .= txns]
-  toEncoding (Journal open earn comp ffm reportParams  asset lia equi rev expe txns) =
+                "Transactions" .= txns,
+                "Default budget" .= defBud,
+                "Budgets" .= budgets]
+  toEncoding (Journal open earn comp ffm reportParams  asset lia equi rev expe txns defBud budgets) =
         pairs $ (if T.null comp then mempty else "Company name" .= comp) <>
                 "Opening balance account" .= open <>
                 "Earnings account" .= earn <>
@@ -74,7 +85,9 @@ instance ToJSON Journal where
                 "Equity accounts" .= equi <>
                 "Revenue accounts" .= rev <>
                 "Expense accounts" .= expe <>
-                "Transactions" .= txns
+                "Transactions" .= txns <>
+                "Default budget" .= defBud <>
+                "Budgets" .= budgets
 
 instance FromJSON Journal where
     parseJSON = withObject "Journal" $ \v -> Journal
@@ -89,9 +102,29 @@ instance FromJSON Journal where
         <*> v .: "Revenue accounts"
         <*> v .: "Expense accounts"
         <*> v .: "Transactions"
+        <*> v .: "Default budget"
+        <*> v .: "Budgets"
 
 -- | Returns the list of all accounts that appears on the income statement
 incomeStatementAccounts :: Journal -> [Account]
 incomeStatementAccounts j = concatMap go [jRevenue, jExpense]
   where go :: (Journal -> Tree Account) -> [Account]
         go f = flatten $ f j
+
+-- | The five account tree
+accountForest :: Journal -> [Tree Account]
+accountForest j = [jAsset j, jLiability j, jEquity j, jRevenue j, jExpense j]
+
+-- | Returns the list of all budget accounts tree so they include their children
+budgetAccounts :: Journal -> Budget -> [Tree Account]
+budgetAccounts j budget = concatMap (\x -> foldTree alg x False)
+                        $ accountForest j
+  
+  where alg :: Account -> [Bool -> [Tree Account]] -> (Bool -> [Tree Account])
+        alg acc xs parent =
+          if parent || aIdentifier acc `elem` bAccs
+          then [Node acc (concatMap (\f -> f True) xs)]
+          else concatMap (\f -> f False) xs
+
+        bAccs :: [Identifier]
+        bAccs = bAccounts budget
