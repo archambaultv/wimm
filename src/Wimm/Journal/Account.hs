@@ -13,6 +13,7 @@ module Wimm.Journal.Account
       isIncomeStatementType,
       isCreditType,
       isDebitType,
+      Identifier,
       Account(..)
     ) where
 
@@ -47,9 +48,11 @@ isCreditType a = a `elem` [Liability, Equity, Revenue]
 isDebitType :: AccountType -> Bool
 isDebitType = not . isCreditType
 
+type Identifier = T.Text
+
 -- | The datatype to encode an account as it appears in the JSON journal files
 data Account = Account {
-  aIdentifier :: T.Text, -- Unique to each account. The identifier is used 
+  aIdentifier :: Identifier, -- Unique to each account. The identifier is used 
                          -- when other JSON object what to refer to this account.
   aDisplayName :: T.Text, -- Many accounts can have the same display name on the reports.
   aNumber :: Int -- Provided by the user. Must be different for each account. 

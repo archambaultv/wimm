@@ -21,18 +21,16 @@ import Wimm.Report
 
 -- | The commands accepted by the command line interface
 data Command = CTxnReport FilePath FilePath
+             | CBalSheetReport FilePath FilePath
              | CTxnImport FilePath FilePath FilePath
 
 -- | How to execute the CLI commands
 runCommand :: Command -> IO ()
-runCommand (CTxnReport journalPath reportPath) = do
-  input <- decodeFileEither journalPath :: IO (Either ParseException Journal)
-  case input of
-    Left err -> putStrLn (show err)
-    Right journal -> do
-      let report = transactionReport (Nothing, Nothing) journal
-      let csvSep = jCsvSeparator $ jReportParams journal
-      writeReport reportPath csvSep report
+runCommand (CTxnReport journalPath reportPath) = 
+  runReport journalPath reportPath (transactionReport (Nothing, Nothing))
+
+runCommand (CBalSheetReport journalPath reportPath) =
+  runReport journalPath reportPath (balanceSheetReport (Nothing, Nothing))
 
 runCommand (CTxnImport csvDescPath csvDataPath outputPath) = do
   input <- decodeFileEither csvDescPath :: IO (Either ParseException ImportCsv)
@@ -41,3 +39,13 @@ runCommand (CTxnImport csvDescPath csvDataPath outputPath) = do
     Right desc -> do
       txns <- importCsv desc csvDataPath
       encodeFile outputPath (txns :: [Transaction])
+
+runReport :: FilePath -> FilePath -> (Journal -> Report) -> IO ()
+runReport journalPath reportPath mkReport = do
+  input <- decodeFileEither journalPath :: IO (Either ParseException Journal)
+  case input of
+    Left err -> putStrLn (show err)
+    Right journal -> do
+      let report = mkReport journal
+      let csvSep = jCsvSeparator $ jReportParams journal
+      writeReport reportPath csvSep report

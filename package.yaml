@@ -47,6 +47,7 @@ ghc-options:
 
 default-extensions:
 - OverloadedStrings
+- TupleSections
 
 library:
   source-dirs: src

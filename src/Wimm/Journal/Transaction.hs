@@ -9,7 +9,8 @@
 -- This module defines what a transaction is.
 module Wimm.Journal.Transaction
     ( 
-      Transaction(..)
+      Transaction(..),
+      txnToPostings
     ) where
 
 import Data.Time (Day)
@@ -53,3 +54,6 @@ instance FromJSON Transaction where
         <*> v .: "Postings"
         <*> (v .:? "Comment" .!= "")
         <*> (v .:? "Statement description" .!= "")
+
+txnToPostings :: Transaction -> [(Transaction, Posting)]
+txnToPostings t = map (t,) $ tPostings t

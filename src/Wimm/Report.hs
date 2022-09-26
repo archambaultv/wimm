@@ -11,9 +11,11 @@
 module Wimm.Report
 (
   module Wimm.Report.Report,
-  module Wimm.Report.Transactions
+  module Wimm.Report.Transactions,
+  module Wimm.Report.BalanceSheet
   )
 where
 
 import Wimm.Report.Report
 import Wimm.Report.Transactions
+import Wimm.Report.BalanceSheet

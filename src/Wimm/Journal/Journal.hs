@@ -10,7 +10,7 @@
 
 module Wimm.Journal.Journal
     ( Journal(..),
-      journalAccounts
+      incomeStatementAccounts
     ) where
 
 import Data.Tree (Tree, flatten)
@@ -65,8 +65,8 @@ instance FromJSON Journal where
         <*> v .: "Expense accounts"
         <*> v .: "Transactions"
 
--- | Returns the list of all accounts
-journalAccounts :: Journal -> [Account]
-journalAccounts j = concatMap go [jAsset, jLiability, jEquity, jRevenue, jExpense]
+-- | Returns the list of all accounts that appears on the income statement
+incomeStatementAccounts :: Journal -> [Account]
+incomeStatementAccounts j = concatMap go [jRevenue, jExpense]
   where go :: (Journal -> Tree Account) -> [Account]
         go f = flatten $ f j
