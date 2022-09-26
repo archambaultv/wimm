@@ -50,6 +50,16 @@ balanceSheetReportInfo = info (balanceSheetReport <**> helper)
               (fullDesc
                <> progDesc "Prints the balance sheet in a CSV format")
 
+incomeStatementReport :: Parser Command
+incomeStatementReport = CIncomeStatementReport
+                   <$> journalFile
+                   <*> csvFile
+
+incomeStatementReportInfo :: ParserInfo Command
+incomeStatementReportInfo = info (incomeStatementReport <**> helper)
+              (fullDesc
+               <> progDesc "Prints the income statement sheet in a CSV format")
+
 transactionsImport :: Parser Command
 transactionsImport = CTxnImport
                    <$> csvDescFile
@@ -64,8 +74,9 @@ transactionsImportInfo = info (transactionsImport <**> helper)
 parseCommand :: Parser Command
 parseCommand = subparser
   ( command "balancesheet" balanceSheetReportInfo <>
-    command "transactions" transactionsReportInfo <>
-    command "import" transactionsImportInfo
+    command "import" transactionsImportInfo <>
+    command "incomestatement" incomeStatementReportInfo <>
+    command "transactions" transactionsReportInfo
     )
 
 opts :: ParserInfo Command

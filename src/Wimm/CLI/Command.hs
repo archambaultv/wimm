@@ -22,6 +22,7 @@ import Wimm.Report
 -- | The commands accepted by the command line interface
 data Command = CTxnReport FilePath FilePath
              | CBalSheetReport FilePath FilePath
+             | CIncomeStatementReport FilePath FilePath
              | CTxnImport FilePath FilePath FilePath
 
 -- | How to execute the CLI commands
@@ -31,6 +32,9 @@ runCommand (CTxnReport journalPath reportPath) =
 
 runCommand (CBalSheetReport journalPath reportPath) =
   runReport journalPath reportPath (balanceSheetReport (Nothing, Nothing))
+
+runCommand (CIncomeStatementReport journalPath reportPath) =
+  runReport journalPath reportPath (incomeStatementReport (Nothing, Nothing))
 
 runCommand (CTxnImport csvDescPath csvDataPath outputPath) = do
   input <- decodeFileEither csvDescPath :: IO (Either ParseException ImportCsv)

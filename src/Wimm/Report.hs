@@ -12,10 +12,12 @@ module Wimm.Report
 (
   module Wimm.Report.Report,
   module Wimm.Report.Transactions,
-  module Wimm.Report.BalanceSheet
+  module Wimm.Report.BalanceSheet,
+  module Wimm.Report.IncomeStatement
   )
 where
 
 import Wimm.Report.Report
 import Wimm.Report.Transactions
 import Wimm.Report.BalanceSheet
+import Wimm.Report.IncomeStatement
