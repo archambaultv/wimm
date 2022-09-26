@@ -90,11 +90,11 @@ balanceSheetReport (startD, endD) j = concat [assetReport, liabilityReport, equi
                    $ map ((\p -> (pAccount p, pAmount p)) . snd) postings
 
         accountAmount :: Identifier -> Maybe Amount
-        accountAmount ident | ident == (jOpeningBalanceAccount $ jReportParams j) =
+        accountAmount ident | ident == (jOpeningBalanceAccount j) =
           case (HM.lookup ident balanceMap) of
             Nothing -> Just openBalAmnt
             (Just x) -> Just (x + openBalAmnt)
-        accountAmount ident | ident == (jEarningsAccount $ jReportParams j) =
+        accountAmount ident | ident == (jEarningsAccount j) =
           case (HM.lookup ident balanceMap) of
             Nothing -> Just earningAmnt
             (Just x) -> Just (x + earningAmnt)

@@ -97,6 +97,6 @@ accountMap journal = HM.fromList
 
   where toRAccount :: AccountType -> Account -> RAccount
         toRAccount accType acc = 
-          let isEarning = aIdentifier acc == (jEarningsAccount $ jReportParams journal)
-              isOpenBal = aIdentifier acc == (jOpeningBalanceAccount $ jReportParams journal)
+          let isEarning = aIdentifier acc == (jEarningsAccount journal)
+              isOpenBal = aIdentifier acc == (jOpeningBalanceAccount journal)
           in RAccount acc accType isEarning isOpenBal
