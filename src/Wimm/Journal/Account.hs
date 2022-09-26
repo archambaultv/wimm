@@ -52,7 +52,7 @@ data Account = Account {
   aIdentifier :: T.Text, -- Unique to each account. The identifier is used 
                          -- when other JSON object what to refer to this account.
   aDisplayName :: T.Text, -- Many accounts can have the same display name on the reports.
-  aNumber :: Int -- Provided by the user. Must be different for each account. As a rule, it must respec
+  aNumber :: Int -- Provided by the user. Must be different for each account. 
   -- For now let us use flat structure
   -- aParent :: T.Text -- Identifier of the parent, as defined in the account CSV files
 }

@@ -13,6 +13,7 @@ module Wimm.Journal.Journal
       journalAccounts
     ) where
 
+import Data.Tree (Tree, flatten)
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs)
 import Wimm.Journal.Account
 import Wimm.Journal.ReportParameters
@@ -24,12 +25,12 @@ data Journal = Journal {
   -- | The defaults parameters for reporting
   jReportParams :: JournalReportParameters,
 
-  -- | The accounts. For now we use a flat structure
-  jAsset :: [Account],
-  jLiability :: [Account],
-  jEquity :: [Account],
-  jRevenue :: [Account],
-  jExpense :: [Account],
+  -- | The accounts. One tree per account type
+  jAsset :: Tree Account,
+  jLiability :: Tree Account,
+  jEquity :: Tree Account,
+  jRevenue :: Tree Account,
+  jExpense :: Tree Account,
 
   -- | The transactions.
   jTransactions :: [Transaction]
@@ -66,4 +67,6 @@ instance FromJSON Journal where
 
 -- | Returns the list of all accounts
 journalAccounts :: Journal -> [Account]
-journalAccounts j = jAsset j ++ jLiability j ++ jEquity j ++ jRevenue j ++ jExpense j
+journalAccounts j = concatMap go [jAsset, jLiability, jEquity, jRevenue, jExpense]
+  where go :: (Journal -> Tree Account) -> [Account]
+        go f = flatten $ f j

@@ -32,6 +32,7 @@ dependencies:
 - Decimal
 - scientific
 - vector
+- containers
 
 ghc-options:
 - -Wall
