@@ -25,7 +25,7 @@ data Journal = Journal {
   -- | The defaults parameters for reporting
   jReportParams :: JournalReportParameters,
 
-  -- | The accounts. For now we use a flat structure
+  -- | The accounts. One tree per account type
   jAsset :: Tree Account,
   jLiability :: Tree Account,
   jEquity :: Tree Account,
