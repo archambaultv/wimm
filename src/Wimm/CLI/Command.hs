@@ -55,11 +55,11 @@ runCommand (CIncomeStatementReport journalPath reportPath) =
   runReport journalPath reportPath (incomeStatementReport (Nothing, Nothing))
 
 runCommand (CTxnImport csvDescPath csvDataPath outputPath journalPath) = do
-  input <- Yaml.decodeFileEither csvDescPath :: IO (Either Yaml.ParseException ImportCsv)
+  input <- Yaml.decodeFileEither csvDescPath :: IO (Either Yaml.ParseException CsvDescription)
   case input of
     Left err -> putStrLn (show err)
     Right desc -> do
-      txns <- importCsv desc csvDataPath
+      txns <- importTxns desc csvDataPath
       case journalPath of
         Nothing -> encodeFileByExt outputPath configTxnJSON configTxnYaml (txns :: [Transaction])
         Just jPath -> do

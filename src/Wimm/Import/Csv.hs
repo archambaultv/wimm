@@ -12,17 +12,16 @@
 
 module Wimm.Import.Csv
 (
-  ImportCsv(..),
+  CsvDescription(..),
   CsvHeader(..),
   CsvRule(..),
   CsvLineCriterion(..),
-  importCsv
+  importTxns
   )
 where
 
 import GHC.Generics
 import Data.Char (ord)
-import Data.Maybe (catMaybes)
 import Data.Time (Day, parseTimeM, defaultTimeLocale, iso8601DateFormat)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
@@ -34,11 +33,10 @@ import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pai
 import Wimm.Journal
 
 -- | Defines how to import transactions from a csv bank statement
-data ImportCsv = ImportCsv {
+data CsvDescription = CsvDescription {
   iCsvSeparator :: Char, -- | Csv separator used by the bank
   iAccount1 :: T.Text, -- The account where are importing transactions from
-  iAccount2Negative :: T.Text, -- The default second account when the amount is negative
-  iAccount2Positive :: T.Text, -- The default second account when the amount is positive
+  iAccount2 :: T.Text, -- The default second account
   iSkipHeader :: Bool, -- Should we skip the first line
   iImportNullTxn :: Bool, -- Should we import transactions with 0 amount
   iHeader :: CsvHeader, -- The header, so we can find date, amount, etc.
@@ -91,29 +89,33 @@ matchCriteria l (MatchDate d) = csvLineDate l == d
 -- Builds the default rules from the JSON import csv file
 -- At least one of these rule will always match, so use them
 -- after the customs rules
-defaultRules :: ImportCsv -> [CsvRule]
-defaultRules iCsv = [
-  CsvRule [AmountBelow 0] (iAccount2Negative iCsv) Nothing Nothing Nothing,
-  CsvRule [AmountAbove 0] (iAccount2Positive iCsv) Nothing Nothing Nothing,
-  CsvRule [MatchAmount 0] (iAccount2Negative iCsv) Nothing Nothing Nothing
-  ]
+defaultTransaction :: CsvDescription -> CsvLine -> Transaction
+defaultTransaction iCsv csvLine = 
+  Transaction (csvLineDate csvLine)
+              Nothing
+              Nothing
+              [Posting Nothing (csvLineAccount1 csvLine) (csvLineAmount csvLine),
+               Posting Nothing (iAccount2 iCsv) (negate $ csvLineAmount csvLine) ]
+              Nothing
+              (Just $ csvLineStatementDesc csvLine)
 
 -- The first rule that matches
-applyRules :: ImportCsv -> CsvLine -> Transaction
+applyRules :: CsvDescription -> CsvLine -> Transaction
 applyRules iCsv csvLine =
   let -- Add the default rules to the user provided rules
-      rules = iRules iCsv ++ defaultRules iCsv
+      rules = iRules iCsv
+      -- The default transaction
+      tDefault = defaultTransaction iCsv csvLine
       -- Try to apply the rules
-      txns :: [Maybe Transaction]
-      txns = map matchLine rules
-      -- Pick the first one that applies. We know one must apply
-      t = head $ catMaybes txns
-  in t
+      -- Take the first one that applies
+      txn :: Transaction
+      txn = foldr matchLine tDefault rules
+  in txn
 
-  where matchLine :: CsvRule -> Maybe Transaction
-        matchLine r = if all (matchCriteria csvLine) (csvRuleCriteria r)
-                           then Just (mkTxn r)
-                           else Nothing
+  where matchLine :: CsvRule -> Transaction -> Transaction
+        matchLine r t = if all (matchCriteria csvLine) (csvRuleCriteria r)
+                        then mkTxn r
+                        else t
 
 
         mkTxn :: CsvRule -> Transaction
@@ -129,7 +131,7 @@ applyRules iCsv csvLine =
 parseISO8601M :: String -> Maybe Day
 parseISO8601M s = parseTimeM False defaultTimeLocale (iso8601DateFormat Nothing) s
 
-readCsvLine :: ImportCsv -> V.Vector T.Text -> Maybe CsvLine
+readCsvLine :: CsvDescription -> V.Vector T.Text -> Maybe CsvLine
 readCsvLine iCsv line =
   let acc1 = iAccount1 iCsv
       dateIdx = (csvHeaderDate $ iHeader iCsv) - 1
@@ -143,8 +145,8 @@ readCsvLine iCsv line =
   in ((,) <$> date <*> amount)
      >>= \(d, m) -> return (CsvLine acc1 d desc m)
 
-importCsv :: ImportCsv -> FilePath -> IO [Transaction]
-importCsv iCsv path = do
+importTxns :: CsvDescription -> FilePath -> IO [Transaction]
+importTxns iCsv path = do
   csv <- BL.readFile path :: IO BL.ByteString
   let h = if iSkipHeader iCsv then Csv.HasHeader else Csv.NoHeader
   let opt = Csv.defaultDecodeOptions {
@@ -158,29 +160,28 @@ importCsv iCsv path = do
         Just csvLines -> return $ map (applyRules iCsv) (V.toList csvLines)
 
 -- ToJSON and FromJason instances
-instance ToJSON ImportCsv where
-  toJSON = genericToJSON customOptionsImportCsv
-  toEncoding = genericToEncoding customOptionsImportCsv
+instance ToJSON CsvDescription where
+  toJSON = genericToJSON customOptionsCsvDescription
+  toEncoding = genericToEncoding customOptionsCsvDescription
 
-instance FromJSON ImportCsv where
-  parseJSON = genericParseJSON customOptionsImportCsv
+instance FromJSON CsvDescription where
+  parseJSON = genericParseJSON customOptionsCsvDescription
 
-customOptionsImportCsv :: Options
-customOptionsImportCsv = defaultOptions{
-  fieldLabelModifier = fieldNameImportCsv,
+customOptionsCsvDescription :: Options
+customOptionsCsvDescription = defaultOptions{
+  fieldLabelModifier = fieldNameCsvDescription,
   omitNothingFields = True
 }
 
-fieldNameImportCsv :: String -> String
-fieldNameImportCsv "iCsvSeparator" = "csv separator"
-fieldNameImportCsv "iAccount1" = "account 1"
-fieldNameImportCsv "iAccount2Negative" = "account 2 if amount is negative"
-fieldNameImportCsv "iAccount2Positive" = "account 2 if amount is positive"
-fieldNameImportCsv "iSkipHeader" = "skip header"
-fieldNameImportCsv "iImportNullTxn" = "import transaction when amount is zero"
-fieldNameImportCsv "iHeader" = "header"
-fieldNameImportCsv "iRules" = "rules"
-fieldNameImportCsv x = x
+fieldNameCsvDescription :: String -> String
+fieldNameCsvDescription "iCsvSeparator" = "csv separator"
+fieldNameCsvDescription "iAccount1" = "account 1"
+fieldNameCsvDescription "iAccount2" = "account 2"
+fieldNameCsvDescription "iSkipHeader" = "skip header"
+fieldNameCsvDescription "iImportNullTxn" = "import transaction when amount is zero"
+fieldNameCsvDescription "iHeader" = "header"
+fieldNameCsvDescription "iRules" = "rules"
+fieldNameCsvDescription x = x
 
 
 instance ToJSON CsvHeader where
