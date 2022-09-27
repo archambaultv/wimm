@@ -24,7 +24,6 @@ module Wimm.Journal.Transaction
 
 import Data.Hashable
 import Data.Scientific (Scientific)
-import Data.List (foldl')
 import Data.Time (Day)
 import Data.Maybe (fromMaybe)
 import GHC.Generics
@@ -95,8 +94,8 @@ removeDuplicateTxns old new =
   let oldKeys :: HM.HashMap TxnKey Int
       oldKeys = HM.fromListWith (+) 
               $ zip (map toTxnKey old) (repeat 1)
-      dedup :: (HM.HashMap TxnKey Int, [Transaction]) -> Transaction -> (HM.HashMap TxnKey Int, [Transaction])
-      dedup (m, acc) t =
+      dedup :: Transaction -> (HM.HashMap TxnKey Int, [Transaction]) -> (HM.HashMap TxnKey Int, [Transaction])
+      dedup t (m, acc) =
         let k = (toTxnKey t)
             foo :: (Maybe Int -> Maybe (Maybe Int))
             foo Nothing = Nothing -- Simply not in the map
@@ -106,7 +105,7 @@ removeDuplicateTxns old new =
               Nothing -> (m, t : acc) -- Not in old
               Just x -> (x, acc) -- In old
 
-  in snd $ foldl' dedup (oldKeys, []) new
+  in snd $ foldr dedup (oldKeys, []) new
 
 
 instance ToJSON Transaction where
