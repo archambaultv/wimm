@@ -12,14 +12,16 @@
 
 module Wimm.Journal.Journal
     ( Journal(..),
-      incomeStatementAccounts,
       budgetAccounts,
-      accountForest
+      accountForest,
+      AccountInfo(..),
+      accInfoMap
     ) where
 
 import qualified Data.Text as T
+import qualified Data.HashMap.Strict as HM
+import Data.Functor.Foldable (cata, para)
 import GHC.Generics
-import Data.Tree (Tree(..), flatten, foldTree)
 import Data.Aeson (ToJSON(..), FromJSON(..), Options(..),toEncoding, genericToEncoding, 
                    genericToJSON, genericParseJSON, defaultOptions)
 import Wimm.Journal.Account
@@ -46,11 +48,11 @@ data Journal = Journal {
   jReportParams :: JournalReportParameters,
 
   -- | The accounts. One tree per account type
-  jAsset :: Tree Account,
-  jLiability :: Tree Account,
-  jEquity :: Tree Account,
-  jRevenue :: Tree Account,
-  jExpense :: Tree Account,
+  jAsset :: Account,
+  jLiability :: Account,
+  jEquity :: Account,
+  jRevenue :: Account,
+  jExpense :: Account,
 
   -- | The transactions.
   jTransactions :: [Transaction],
@@ -82,36 +84,52 @@ fieldName "jEarningsAccount" = "earnings account"
 fieldName "jCompanyName" = "company name"
 fieldName "jFirstFiscalMonth" = "first fiscal month"
 fieldName "jReportParams" = "csv report parameters"
-fieldName "jAsset" = "asset accounts"
-fieldName "jLiability" = "liability accounts"
-fieldName "jEquity" = "equity accounts"
-fieldName "jRevenue" = "revenue accounts"
-fieldName "jExpense" = "expense accounts"
+fieldName "jAsset" = "assets account tree"
+fieldName "jLiability" = "liabilities account tree"
+fieldName "jEquity" = "equity account tree"
+fieldName "jRevenue" = "revenue account tree"
+fieldName "jExpense" = "expenses account tree"
 fieldName "jTransactions" = "transactions"
 fieldName "jDefaultBudget" = "default budget"
 fieldName "jBudgets" = "budgets"
 fieldName x = x
 
--- | Returns the list of all accounts that appears on the income statement
-incomeStatementAccounts :: Journal -> [Account]
-incomeStatementAccounts j = concatMap go [jRevenue, jExpense]
-  where go :: (Journal -> Tree Account) -> [Account]
-        go f = flatten $ f j
-
--- | The five account tree
-accountForest :: Journal -> [Tree Account]
+-- | The five top accounts
+accountForest :: Journal -> [Account]
 accountForest j = [jAsset j, jLiability j, jEquity j, jRevenue j, jExpense j]
 
--- | Returns the list of all budget accounts tree so they include their children
-budgetAccounts :: Journal -> Budget -> [Tree Account]
-budgetAccounts j budget = concatMap (\x -> foldTree alg x False)
+-- | Returns the list of all budget accounts (and their children)
+-- Does not return an account twice if the parent is also in the list of budget accounts
+budgetAccounts :: Journal -> Budget -> [Account]
+budgetAccounts j budget = concatMap (para alg)
                         $ accountForest j
   
-  where alg :: Account -> [Bool -> [Tree Account]] -> (Bool -> [Tree Account])
-        alg acc xs parent =
-          if parent || aIdentifier acc `elem` bAccs
-          then [Node acc (concatMap (\f -> f True) xs)]
-          else concatMap (\f -> f False) xs
+  where alg :: AccountF (Account, [Account]) -> [Account]
+        alg (AccountF ident name number xs) =
+          if ident `elem` bAccs
+          then [Account ident name number (map fst xs)]
+          else concatMap snd xs
 
         bAccs :: [Identifier]
         bAccs = bAccounts budget
+
+-- | The information associated with an identifier in the journal file
+data AccountInfo = AccountInfo {
+  aiIdentifier :: T.Text,
+  aiAccountType :: AccountType,
+  aiNumber :: Int,
+  aiDisplayName :: T.Text
+}
+-- | Returns a map from Identifier to account type
+accInfoMap :: Journal -> HM.HashMap Identifier AccountInfo
+accInfoMap j = HM.fromList
+             $ concatMap (\(accType, f) -> cata (alg accType) (f j))
+              [(Asset, jAsset), 
+              (Liability, jLiability),
+              (Equity, jEquity),
+              (Revenue, jRevenue),
+              (Expense, jExpense)]
+    where alg :: AccountType -> AccountF [(Identifier, AccountInfo)] -> [(Identifier, AccountInfo)]
+          alg accType acc@(AccountF ident _ number xs) = 
+            (ident, AccountInfo ident accType number (aDisplayNameF acc))
+                : concat xs

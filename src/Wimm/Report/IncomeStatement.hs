@@ -14,7 +14,7 @@ module Wimm.Report.IncomeStatement
   )
 where
 
-import Data.Tree (foldTree)
+import Data.Functor.Foldable (cata)
 import Data.Maybe (fromMaybe)
 import qualified Data.HashMap.Strict as HM
 import Wimm.Report.Report
@@ -26,38 +26,36 @@ incomeStatementReport (startD, endD) j = concat [revenueReport, expenseReport]
   where
         -- Build the account map so we can associate an Identifier to all the
         -- information regarding the account
-        accMap :: HM.HashMap Identifier RAccount
-        accMap = accountMap j
+        accMap :: HM.HashMap Identifier AccountInfo
+        accMap = accInfoMap j
 
         -- Extract the postings from the journal, excluding future transactions
         -- and postings related to balance sheet accounts
         postings :: [Posting]
-        postings = filter (rIsIncomeStatementType . (accMap HM.!) . pAccount)
+        postings = filter (isIncomeStatementType . aiAccountType . (accMap HM.!) . pAccount)
                  $ concatMap (map snd . txnToPostings)
                  $ filter (\t -> not (afterEndDate endD t || beforeStartDate startD t)) 
                  $ jTransactions j
 
         -- Serialize each account type tree
         revenueReport :: Report
-        revenueReport = snd $ foldTree alg (jRevenue j)
+        revenueReport = snd $ cata alg (jRevenue j)
 
         expenseReport :: Report
-        expenseReport = snd $ foldTree alg (jExpense j)
+        expenseReport = snd $ cata alg (jExpense j)
 
-        alg :: Account -> [(Amount, Report)] -> (Amount, Report)
-        alg acc [] =
-          let ident = aIdentifier acc
-              amnt = fromMaybe 0 (accountAmount ident)
-              row = [aDisplayName acc,showAmount (jReportParams j) amnt]
+        alg :: AccountF (Amount, Report) -> (Amount, Report)
+        alg acc@(AccountF ident _ _ []) =
+          let amnt = fromMaybe 0 (accountAmount ident)
+              row = [aDisplayNameF acc,showAmount (jReportParams j) amnt]
           in (amnt, [row])
-        alg acc children =
+        alg acc@(AccountF ident _ _ children) =
           let childrenSum = sum $ map fst children
-              topRow = [aDisplayName acc]
-              ident = aIdentifier acc
+              topRow = [aDisplayNameF acc]
               amnt = (fromMaybe 0 (accountAmount ident)) + childrenSum
               childrenRow :: Report
               childrenRow = concatMap snd children
-              finalRow = [aDisplayName acc,showAmount (jReportParams j) amnt]
+              finalRow = [aDisplayNameF acc,showAmount (jReportParams j) amnt]
           in (amnt, topRow : childrenRow ++ [finalRow])
 
         -- Helper functions
