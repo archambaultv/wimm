@@ -85,10 +85,20 @@ budgetReportInfo = info (budgetReport <**> helper)
               (fullDesc
                <> progDesc "Prints the budget report in a CSV format")
 
+checkJournal :: Parser Command
+checkJournal = CCheck
+                   <$> journalFile
+
+checkJournalInfo :: ParserInfo Command
+checkJournalInfo = info (checkJournal <**> helper)
+              (fullDesc
+               <> progDesc "Verify the integrety of the journal file")
+
 parseCommand :: Parser Command
 parseCommand = subparser
   ( command "balancesheet" balanceSheetReportInfo <>
     command "budget" budgetReportInfo <>
+    command "check" checkJournalInfo <>
     command "import" transactionsImportInfo <>
     command "incomestatement" incomeStatementReportInfo <>
     command "transactions" transactionsReportInfo
