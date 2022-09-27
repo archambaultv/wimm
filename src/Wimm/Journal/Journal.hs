@@ -12,12 +12,14 @@
 
 module Wimm.Journal.Journal
     ( Journal(..),
+      jBalanceAssertions,
       budgetAccounts,
       accountForest,
       AccountInfo(..),
       accInfoMap
     ) where
 
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as HM
 import Data.Functor.Foldable (cata, para)
@@ -28,6 +30,7 @@ import Wimm.Journal.Account
 import Wimm.Journal.ReportParameters
 import Wimm.Journal.Transaction
 import Wimm.Journal.Budget
+import Wimm.Journal.BalanceAssertion
 
 -- | The Journal is a file that contains all the financial data (transactions)
 -- and other info like account descriptions needed to process the data
@@ -57,6 +60,9 @@ data Journal = Journal {
   -- | The transactions.
   jTransactions :: [Transaction],
 
+  -- | The balance assertions.
+  jBalanceAssertionsM :: Maybe [BalanceAssertion],
+
   -- | The default budget
   jDefaultBudget :: T.Text,
 
@@ -64,6 +70,9 @@ data Journal = Journal {
   jBudgets :: [Budget]
   }
   deriving (Eq, Show, Generic)
+
+jBalanceAssertions :: Journal -> [BalanceAssertion]
+jBalanceAssertions j = fromMaybe [] (jBalanceAssertionsM j)
 
 instance ToJSON Journal where
   toJSON = genericToJSON customOptions
@@ -92,6 +101,7 @@ fieldName "jExpense" = "expenses account tree"
 fieldName "jTransactions" = "transactions"
 fieldName "jDefaultBudget" = "default budget"
 fieldName "jBudgets" = "budgets"
+fieldName "jBalanceAssertionsM" = "balance assertions"
 fieldName x = x
 
 -- | The five top accounts
