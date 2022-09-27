@@ -14,7 +14,7 @@ module Wimm.Report.Budget
   )
 where
 
-import Data.Tree (Tree(..), foldTree, flatten)
+import Data.Functor.Foldable (cata)
 import Data.Maybe (fromMaybe,catMaybes)
 import qualified Data.HashMap.Strict as HM
 import Wimm.Report.Report
@@ -29,11 +29,11 @@ budgetReport (startD, endD) j budget =
         -- Any transactions that contains at least one posting in the budgets accounts
         -- is considered a transaction affecting the budget. Any children of a budget
         -- account is also in the budget
-        budgetAcc :: [Tree Account]
+        budgetAcc :: [Account]
         budgetAcc = budgetAccounts j budget
 
         budgetAccIdent :: [Identifier]
-        budgetAccIdent = concatMap (map aIdentifier . flatten) budgetAcc
+        budgetAccIdent = concatMap flattenIdentifier budgetAcc
 
         -- Extract the postings from the journal, excluding out of period
         -- transactions and out of budget transactions
@@ -48,11 +48,11 @@ budgetReport (startD, endD) j budget =
                     . tPostings
 
         -- Serialize each account type tree and a special one for the budget
-        budgetTree :: Tree Account
-        budgetTree = Node (Account "Budget" Nothing 0) budgetAcc
+        budgetTree :: Account
+        budgetTree = Account "Budget" Nothing 0 budgetAcc
 
         budgetAccReport :: Report
-        budgetAccReport = snd $ foldTree alg budgetTree
+        budgetAccReport = snd $ cata alg budgetTree
 
         assetReport :: Report
         assetReport = mkReport jAsset
@@ -69,26 +69,24 @@ budgetReport (startD, endD) j budget =
         expenseReport :: Report
         expenseReport = mkReport jExpense
 
-        mkReport :: (Journal -> Tree Account) -> Report
+        mkReport :: (Journal -> Account) -> Report
         mkReport f = 
             case removeBudgetAcc (f j) of
              Nothing -> []
-             (Just t) -> snd $ foldTree alg t
+             (Just t) -> snd $ cata alg t
 
-        alg :: Account -> [(Amount, Report)] -> (Amount, Report)
-        alg acc [] =
-          let ident = aIdentifier acc
-              amnt = fromMaybe 0 (accountAmount ident)
-              row = [aDisplayName acc,showAmount (jReportParams j) amnt]
+        alg :: AccountF (Amount, Report) -> (Amount, Report)
+        alg acc@(AccountF ident _ _ []) =
+          let amnt = fromMaybe 0 (accountAmount ident)
+              row = [aDisplayNameF acc,showAmount (jReportParams j) amnt]
           in (amnt, [row])
-        alg acc children =
+        alg acc@(AccountF ident _ _ children) =
           let childrenSum = sum $ map fst children
-              topRow = [aDisplayName acc]
-              ident = aIdentifier acc
+              topRow = [aDisplayNameF acc]
               amnt = (fromMaybe 0 (accountAmount ident)) + childrenSum
               childrenRow :: Report
               childrenRow = concatMap snd children
-              finalRow = [aDisplayName acc,showAmount (jReportParams j) amnt]
+              finalRow = [aDisplayNameF acc,showAmount (jReportParams j) amnt]
           in (amnt, topRow : childrenRow ++ [finalRow])
 
         -- Helper functions
@@ -98,10 +96,11 @@ budgetReport (startD, endD) j budget =
         accountAmount :: Identifier -> Maybe Amount
         accountAmount ident = HM.lookup ident balMap
 
-        removeBudgetAcc :: Tree Account -> Maybe (Tree Account)
-        removeBudgetAcc = 
-          let go :: Account -> [Maybe (Tree Account)] -> Maybe (Tree Account)
-              go a xs = if aIdentifier a `elem` (bAccounts budget)
-                        then Nothing
-                        else Just (Node a (catMaybes xs))
-          in foldTree go
+        -- | Remove the budget accounts from
+        removeBudgetAcc :: Account -> Maybe (Account)
+        removeBudgetAcc = cata alg1
+          where alg1 :: AccountF (Maybe Account) -> Maybe Account
+                alg1 (AccountF ident name n xs) =
+                  if ident `elem` (bAccounts budget)
+                  then Nothing
+                  else Just (Account ident name n (catMaybes xs))

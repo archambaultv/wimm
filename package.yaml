@@ -32,8 +32,10 @@ dependencies:
 - Decimal
 - scientific
 - vector
-- containers
 - filepath
+- hashable
+- aeson-pretty
+- recursion-schemes
 
 ghc-options:
 - -Wall

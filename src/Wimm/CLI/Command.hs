@@ -14,8 +14,13 @@ module Wimm.CLI.Command
   runCommand
 ) where
 
-import Data.Yaml (decodeFileEither, ParseException, encodeFile)
-import Data.Aeson (eitherDecodeFileStrict)
+import qualified Data.Yaml as Yaml
+import qualified Data.Yaml.Pretty as YamlP
+import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Encode.Pretty as JSONP
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString as BS
+import qualified Data.Text as T
 import Wimm.Journal
 import Wimm.Import.Csv
 import Wimm.Report
@@ -27,7 +32,7 @@ data Command = CTxnReport FilePath FilePath
              | CBalSheetReport FilePath FilePath
              | CBudgetReport FilePath FilePath
              | CIncomeStatementReport FilePath FilePath
-             | CTxnImport FilePath FilePath FilePath
+             | CTxnImport FilePath FilePath FilePath (Maybe FilePath)
 
 -- | How to execute the CLI commands
 runCommand :: Command -> IO ()
@@ -49,13 +54,19 @@ runCommand (CBudgetReport journalPath reportPath) =
 runCommand (CIncomeStatementReport journalPath reportPath) =
   runReport journalPath reportPath (incomeStatementReport (Nothing, Nothing))
 
-runCommand (CTxnImport csvDescPath csvDataPath outputPath) = do
-  input <- decodeFileEither csvDescPath :: IO (Either ParseException ImportCsv)
+runCommand (CTxnImport csvDescPath csvDataPath outputPath journalPath) = do
+  input <- Yaml.decodeFileEither csvDescPath :: IO (Either Yaml.ParseException CsvDescription)
   case input of
     Left err -> putStrLn (show err)
     Right desc -> do
-      txns <- importCsv desc csvDataPath
-      encodeFile outputPath (txns :: [Transaction])
+      txns <- importTxns desc csvDataPath
+      case journalPath of
+        Nothing -> encodeFileByExt outputPath configTxnJSON configTxnYaml (txns :: [Transaction])
+        Just jPath -> do
+          journal <- decodeJournal jPath
+          case journal of
+            Left err1 -> putStrLn (show err1)
+            Right j -> encodeFileByExt outputPath configTxnJSON configTxnYaml $ removeDuplicateTxns (jTransactions j) txns
 
 runReport :: FilePath -> FilePath -> (Journal -> Report) -> IO ()
 runReport journalPath reportPath mkReport = do
@@ -72,5 +83,27 @@ runReport journalPath reportPath mkReport = do
 decodeJournal :: FilePath -> IO (Either String Journal)
 decodeJournal path =
   case map toLower (takeExtension path) of
-    ".json" -> eitherDecodeFileStrict path :: IO (Either String Journal)
-    _ -> fmap (either (Left . show) Right) (decodeFileEither path :: IO (Either ParseException Journal))
+    ".json" -> JSON.eitherDecodeFileStrict path :: IO (Either String Journal)
+    _ -> fmap (either (Left . show) Right) 
+         (Yaml.decodeFileEither path :: IO (Either Yaml.ParseException Journal))
+
+-- Decodes with pure JSON for .json file. Any other extension is decoded with in
+-- YAML
+encodeFileByExt :: (JSON.ToJSON a) => FilePath -> JSONP.Config -> YamlP.Config -> a -> IO ()
+encodeFileByExt path jsonConfig yamlConfig x =
+  case map toLower (takeExtension path) of
+    ".json" -> BL.writeFile path $ JSONP.encodePretty' jsonConfig x
+    _ -> BS.writeFile path $ YamlP.encodePretty yamlConfig x
+
+txnConfCompare :: T.Text -> T.Text -> Ordering
+txnConfCompare = JSONP.keyOrder ["date","postings","comment","counterparty","tags","statement description"]
+                      `mappend` compare 
+
+configTxnYaml :: YamlP.Config
+configTxnYaml = YamlP.setConfCompare txnConfCompare YamlP.defConfig
+
+configTxnJSON :: JSONP.Config
+configTxnJSON = JSONP.defConfig { 
+  JSONP.confIndent = JSONP.Spaces 2, 
+  JSONP.confCompare = txnConfCompare
+  }

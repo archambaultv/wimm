@@ -22,18 +22,21 @@ journalFile :: Parser String
 journalFile = argument str (metavar "JOURNAL-FILE" <> help "The journal file")
 
 csvDescFile :: Parser String
-csvDescFile = argument str (metavar "CSV-DESC-FILE" <> help "The YAML file that describes the csv structures")
+csvDescFile = argument str (metavar "STATEMENT-DESC-FILE" <> help "The JSON/YAML file that describes the csv STATEMENT-FILE")
 
 statementFile :: Parser String
 statementFile = argument str (metavar "STATEMENT-FILE" <> help "The csv file from the bank")
 
-csvFile :: Parser String
-csvFile = argument str (metavar "CSV-FILE" <> help "The output csv file")
+csvOutputFile :: Parser String
+csvOutputFile = argument str (metavar "CSV-OUTPUT-FILE" <> help "The output csv file")
+
+outputFile :: Parser String
+outputFile = argument str (metavar "OUTPUT-FILE" <> help "The output file")
 
 transactionsReport :: Parser Command
 transactionsReport = CTxnReport
                    <$> journalFile
-                   <*> csvFile
+                   <*> csvOutputFile
 
 transactionsReportInfo :: ParserInfo Command
 transactionsReportInfo = info (transactionsReport <**> helper)
@@ -43,7 +46,7 @@ transactionsReportInfo = info (transactionsReport <**> helper)
 balanceSheetReport :: Parser Command
 balanceSheetReport = CBalSheetReport
                    <$> journalFile
-                   <*> csvFile
+                   <*> csvOutputFile
 
 balanceSheetReportInfo :: ParserInfo Command
 balanceSheetReportInfo = info (balanceSheetReport <**> helper)
@@ -53,7 +56,7 @@ balanceSheetReportInfo = info (balanceSheetReport <**> helper)
 incomeStatementReport :: Parser Command
 incomeStatementReport = CIncomeStatementReport
                    <$> journalFile
-                   <*> csvFile
+                   <*> csvOutputFile
 
 incomeStatementReportInfo :: ParserInfo Command
 incomeStatementReportInfo = info (incomeStatementReport <**> helper)
@@ -64,17 +67,18 @@ transactionsImport :: Parser Command
 transactionsImport = CTxnImport
                    <$> csvDescFile
                    <*> statementFile
-                   <*> csvFile
+                   <*> outputFile
+                   <*> optional journalFile
 
 transactionsImportInfo :: ParserInfo Command
 transactionsImportInfo = info (transactionsImport <**> helper)
               (fullDesc
-               <> progDesc "Imports transactions from a bank CSV and prints them in a YAML format")
+               <> progDesc "Imports transactions from a bank CSV and prints them in a JSON/YAML format. If JOURNAL-FILE is provided then wimm will not output existing transactions.")
 
 budgetReport :: Parser Command
 budgetReport = CBudgetReport
                    <$> journalFile
-                   <*> csvFile
+                   <*> csvOutputFile
 
 budgetReportInfo :: ParserInfo Command
 budgetReportInfo = info (budgetReport <**> helper)

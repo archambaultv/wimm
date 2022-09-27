@@ -45,4 +45,4 @@ transactionReport (startD, endD) journal =
         -- Key :: Account identifier
         -- Value :: Account number as text
         accNoMap :: HM.HashMap Identifier T.Text
-        accNoMap = fmap (T.pack . show . rNumber) $ accountMap journal
+        accNoMap = fmap (T.pack . show . aiNumber) $ accInfoMap journal
