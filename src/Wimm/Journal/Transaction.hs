@@ -18,16 +18,23 @@ module Wimm.Journal.Transaction
       tStatementDescription,
       txnToPostings,
       afterEndDate,
-      beforeStartDate
+      beforeStartDate,
+      removeDuplicateTxns
     ) where
 
+import Data.Hashable
+import Data.Scientific (Scientific)
+import Data.List (foldl')
 import Data.Time (Day)
 import Data.Maybe (fromMaybe)
 import GHC.Generics
 import Data.Aeson (ToJSON(..), FromJSON(..), Options(..),toEncoding, genericToEncoding, 
                    genericToJSON, genericParseJSON, defaultOptions)
 import qualified Data.Text as T
+import qualified Data.HashMap.Strict as HM
 import Wimm.Journal.Posting
+import Wimm.Journal.Amount
+import Wimm.Journal.Account (Identifier)
 
 -- | A transaction is a transfert of funds between some accounts.
 data Transaction = Transaction
@@ -64,6 +71,43 @@ beforeStartDate startD t = case startD of
 
 txnToPostings :: Transaction -> [(Transaction, Posting)]
 txnToPostings t = map (t,) $ tPostings t
+
+-- | The part of a transaction that must match for a duplicate detection
+data TxnKey = TxnKey {
+  tkDate :: Day,
+  tkPostings :: [(Identifier, Scientific)],
+  tkStatementDesc :: T.Text
+} deriving (Eq, Ord, Show, Generic)
+
+instance Hashable TxnKey
+
+toTxnKey :: Transaction -> TxnKey
+toTxnKey t = TxnKey (tDate t) 
+                    (map (\p -> (pAccount p,toScientific $ pAmount p)) $ tPostings t) 
+                    (tStatementDescription t)
+
+-- | removeDuplicateTxns acc old new returns new', the new transactions where
+-- the existing one in old are filtered out
+removeDuplicateTxns :: [Transaction] -> 
+                       [Transaction] -> 
+                       [Transaction]
+removeDuplicateTxns old new =
+  let oldKeys :: HM.HashMap TxnKey Int
+      oldKeys = HM.fromListWith (+) 
+              $ zip (map toTxnKey old) (repeat 1)
+      dedup :: (HM.HashMap TxnKey Int, [Transaction]) -> Transaction -> (HM.HashMap TxnKey Int, [Transaction])
+      dedup (m, acc) t =
+        let k = (toTxnKey t)
+            foo :: (Maybe Int -> Maybe (Maybe Int))
+            foo Nothing = Nothing -- Simply not in the map
+            foo (Just 1) = (Just Nothing) -- Remove the key
+            foo (Just n) = (Just (Just (n - 1))) -- Decrement the value
+        in case HM.alterF foo k m of
+              Nothing -> (m, t : acc) -- Not in old
+              Just x -> (x, acc) -- In old
+
+  in snd $ foldl' dedup (oldKeys, []) new
+
 
 instance ToJSON Transaction where
   toJSON = genericToJSON customOptions

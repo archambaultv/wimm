@@ -34,6 +34,7 @@ dependencies:
 - vector
 - containers
 - filepath
+- hashable
 
 ghc-options:
 - -Wall

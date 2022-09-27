@@ -27,7 +27,7 @@ data Command = CTxnReport FilePath FilePath
              | CBalSheetReport FilePath FilePath
              | CBudgetReport FilePath FilePath
              | CIncomeStatementReport FilePath FilePath
-             | CTxnImport FilePath FilePath FilePath
+             | CTxnImport FilePath FilePath FilePath (Maybe FilePath)
 
 -- | How to execute the CLI commands
 runCommand :: Command -> IO ()
@@ -49,13 +49,19 @@ runCommand (CBudgetReport journalPath reportPath) =
 runCommand (CIncomeStatementReport journalPath reportPath) =
   runReport journalPath reportPath (incomeStatementReport (Nothing, Nothing))
 
-runCommand (CTxnImport csvDescPath csvDataPath outputPath) = do
+runCommand (CTxnImport csvDescPath csvDataPath outputPath journalPath) = do
   input <- decodeFileEither csvDescPath :: IO (Either ParseException ImportCsv)
   case input of
     Left err -> putStrLn (show err)
     Right desc -> do
       txns <- importCsv desc csvDataPath
-      encodeFile outputPath (txns :: [Transaction])
+      case journalPath of
+        Nothing -> encodeFile outputPath (txns :: [Transaction])
+        Just jPath -> do
+          journal <- decodeJournal jPath
+          case journal of
+            Left err1 -> putStrLn (show err1)
+            Right j -> encodeFile outputPath $ removeDuplicateTxns (jTransactions j) txns
 
 runReport :: FilePath -> FilePath -> (Journal -> Report) -> IO ()
 runReport journalPath reportPath mkReport = do

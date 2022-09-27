@@ -65,6 +65,7 @@ transactionsImport = CTxnImport
                    <$> csvDescFile
                    <*> statementFile
                    <*> csvFile
+                   <*> optional journalFile
 
 transactionsImportInfo :: ParserInfo Command
 transactionsImportInfo = info (transactionsImport <**> helper)
