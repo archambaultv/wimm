@@ -33,6 +33,7 @@ data Command = CTxnReport FilePath FilePath
              | CBudgetReport FilePath FilePath
              | CIncomeStatementReport FilePath FilePath
              | CTxnImport FilePath FilePath FilePath (Maybe FilePath)
+             | CCheck FilePath
 
 -- | How to execute the CLI commands
 runCommand :: Command -> IO ()
@@ -67,6 +68,16 @@ runCommand (CTxnImport csvDescPath csvDataPath outputPath journalPath) = do
           case journal of
             Left err1 -> putStrLn (show err1)
             Right j -> encodeFileByExt outputPath configTxnJSON configTxnYaml $ removeDuplicateTxns (jTransactions j) txns
+
+runCommand (CCheck journalPath) = do
+  input <- decodeJournal journalPath
+  case input of
+    Left err -> putStrLn (show err)
+    Right journal -> 
+      case journalCheck journal of
+        Left err -> putStrLn err
+        Right () -> putStrLn "Journal file OK"
+
 
 runReport :: FilePath -> FilePath -> (Journal -> Report) -> IO ()
 runReport journalPath reportPath mkReport = do
