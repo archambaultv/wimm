@@ -167,15 +167,17 @@ instance FromJSON ImportCsv where
 
 customOptionsImportCsv :: Options
 customOptionsImportCsv = defaultOptions{
-  fieldLabelModifier = fieldNameImportCsv
+  fieldLabelModifier = fieldNameImportCsv,
+  omitNothingFields = True
 }
 
 fieldNameImportCsv :: String -> String
+fieldNameImportCsv "iCsvSeparator" = "csv separator"
 fieldNameImportCsv "iAccount1" = "account 1"
 fieldNameImportCsv "iAccount2Negative" = "account 2 if amount is negative"
 fieldNameImportCsv "iAccount2Positive" = "account 2 if amount is positive"
 fieldNameImportCsv "iSkipHeader" = "skip header"
-fieldNameImportCsv "import transaction when amount is zero" = "name"
+fieldNameImportCsv "iImportNullTxn" = "import transaction when amount is zero"
 fieldNameImportCsv "iHeader" = "header"
 fieldNameImportCsv "iRules" = "rules"
 fieldNameImportCsv x = x
@@ -190,7 +192,8 @@ instance FromJSON CsvHeader where
 
 customOptionsCsvHeader :: Options
 customOptionsCsvHeader = defaultOptions{
-  fieldLabelModifier = fieldNameCsvHeader
+  fieldLabelModifier = fieldNameCsvHeader,
+  omitNothingFields = True
 }
 
 fieldNameCsvHeader :: String -> String
@@ -210,7 +213,8 @@ instance FromJSON CsvRule where
 
 customOptionsCsvRule :: Options
 customOptionsCsvRule = defaultOptions{
-  fieldLabelModifier = fieldNameCsvRule
+  fieldLabelModifier = fieldNameCsvRule,
+  omitNothingFields = True
 }
 
 fieldNameCsvRule :: String -> String

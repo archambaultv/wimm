@@ -118,14 +118,15 @@ instance FromJSON Transaction where
 
 customOptions :: Options
 customOptions = defaultOptions{
-  fieldLabelModifier = fieldName
+  fieldLabelModifier = fieldName,
+  omitNothingFields = True
 }
 
 fieldName :: String -> String
 fieldName "tDate" = "date"
-fieldName "tCounterParty" = "counterparty"
-fieldName "tTags" = "tags"
+fieldName "tCounterPartyM" = "counterparty"
+fieldName "tTagsM" = "tags"
 fieldName "tPostings" = "postings"
-fieldName "tComment" = "comment"
-fieldName "tStatementDescription" = "statement description"
+fieldName "tCommentM" = "comment"
+fieldName "tStatementDescriptionM" = "statement description"
 fieldName x = x

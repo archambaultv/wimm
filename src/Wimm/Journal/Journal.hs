@@ -72,7 +72,8 @@ instance FromJSON Journal where
 
 customOptions :: Options
 customOptions = defaultOptions{
-  fieldLabelModifier = fieldName
+  fieldLabelModifier = fieldName,
+  omitNothingFields = True
 }
 
 fieldName :: String -> String

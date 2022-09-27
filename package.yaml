@@ -35,6 +35,7 @@ dependencies:
 - containers
 - filepath
 - hashable
+- aeson-pretty
 
 ghc-options:
 - -Wall
