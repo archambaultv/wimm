@@ -22,7 +22,8 @@ module Wimm.Journal.Journal
       accountForest,
       AccountInfo(..),
       accInfoMap,
-      accInfoList
+      accInfoList,
+      getDefaultBudget
     ) where
 
 import Data.Maybe (fromMaybe)
@@ -82,6 +83,15 @@ jDefaultBudget j =
   case jBudgets j of
     [] -> fromMaybe "" (jDefaultBudgetM j)
     (x:_) -> fromMaybe (bName x) (jDefaultBudgetM j)
+
+-- | Returns the budget defined by default budget
+-- The budget must exists or else error will be called
+getDefaultBudget :: Journal -> Budget
+getDefaultBudget j =
+  let budgets = filter (\b -> bName b == (jDefaultBudget j)) (jBudgets j)
+  in if null budgets
+    then error "getDefaultBudget invalide default budget name"
+    else head budgets
 
 jCompanyName :: Journal -> T.Text
 jCompanyName j = fromMaybe "" (jCompanyNameM j)

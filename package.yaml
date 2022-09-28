@@ -36,6 +36,7 @@ dependencies:
 - hashable
 - aeson-pretty
 - recursion-schemes
+- mtl
 
 ghc-options:
 - -Wall

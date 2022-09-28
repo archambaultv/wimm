@@ -32,11 +32,11 @@ fromScientific = fromRational . toRational
 toScientific :: Amount -> Scientific
 toScientific = fromRational . toRational
 
-readAmount :: String -> Maybe Amount
+readAmount :: String -> Either String Amount
 readAmount s = 
   case readP_to_S scientificP s of
     [(n,"")] -> return $ fromScientific n
-    _ -> Nothing
+    _ -> Left $ "Unable to read " ++ s ++ " has an amount."
 
 
 showAmount :: JournalReportParameters -> Amount -> T.Text

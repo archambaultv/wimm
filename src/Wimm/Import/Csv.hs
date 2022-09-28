@@ -21,11 +21,8 @@ module Wimm.Import.Csv
 where
 
 import GHC.Generics
-import Data.Char (ord)
 import Data.Time (Day, parseTimeM, defaultTimeLocale, iso8601DateFormat)
-import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
-import qualified Data.Csv as Csv
 import qualified Data.Vector as V
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
                    Value, Encoding,  Options(..),toEncoding, genericToEncoding, 
@@ -128,36 +125,36 @@ applyRules iCsv csvLine =
                           (csvRuleComment csvRule)
                           (Just $ csvLineStatementDesc csvLine)
 
-parseISO8601M :: String -> Maybe Day
-parseISO8601M s = parseTimeM False defaultTimeLocale (iso8601DateFormat Nothing) s
+parseISO8601M :: String -> Either String Day
+parseISO8601M s = 
+  case parseTimeM False defaultTimeLocale (iso8601DateFormat Nothing) s of
+    Nothing -> Left $ "failed to parse '" ++ s ++ "' as a date"
+    Just x -> return x
 
-readCsvLine :: CsvDescription -> V.Vector T.Text -> Maybe CsvLine
-readCsvLine iCsv line =
+readCsvLine :: CsvDescription -> (Int, V.Vector T.Text) -> Either String CsvLine
+readCsvLine iCsv (n, line) =
   let acc1 = iAccount1 iCsv
       dateIdx = (csvHeaderDate $ iHeader iCsv) - 1
       amountInIdx = (csvHeaderAmountIn $ iHeader iCsv) - 1
       amountOutIdx = (csvHeaderAmountOut $ iHeader iCsv) - 1
       statementDescIdx =  (cvsHeaderStatementDesc $ iHeader iCsv) - 1
-      date = parseISO8601M $ T.unpack $ line V.! dateIdx
-      amount = (-) <$> readAmount (T.unpack $ line V.! amountInIdx)
-                   <*> readAmount (T.unpack $ line V.! amountOutIdx)
-      desc = line V.! statementDescIdx
-  in ((,) <$> date <*> amount)
-     >>= \(d, m) -> return (CsvLine acc1 d desc m)
+      maxIdx = maximum [dateIdx,amountInIdx,amountOutIdx,statementDescIdx]
+      validLength = if V.length line < maxIdx + 1
+                    then Left $ "line " ++ show n ++ "does not have at least " ++ show (maxIdx + 1) ++ " columns"
+                    else pure ()
+  in do
+    validLength
+    date <- parseISO8601M $ T.unpack $ line V.! dateIdx
+    amount <- (-) <$> readAmount (T.unpack $ line V.! amountInIdx)
+                  <*> readAmount (T.unpack $ line V.! amountOutIdx)
+    let desc = line V.! statementDescIdx
+    return (CsvLine acc1 date desc amount)
 
-importTxns :: CsvDescription -> FilePath -> IO [Transaction]
-importTxns iCsv path = do
-  csv <- BL.readFile path :: IO BL.ByteString
-  let h = if iSkipHeader iCsv then Csv.HasHeader else Csv.NoHeader
-  let opt = Csv.defaultDecodeOptions {
-      Csv.decDelimiter = fromIntegral (ord (iCsvSeparator iCsv))
-    }
-  case (Csv.decodeWith opt h csv :: Either String (V.Vector (V.Vector T.Text))) of
-    Left err -> putStrLn err >> return []
-    Right myLines -> 
-      case traverse (readCsvLine iCsv) myLines of
-        Nothing -> putStrLn "Unable to parse a line" >> return []
-        Just csvLines -> return $ map (applyRules iCsv) (V.toList csvLines)
+importTxns :: CsvDescription -> Int -> V.Vector (V.Vector T.Text) -> Either String [Transaction]
+importTxns iCsv lineOffset myLines =
+  case traverse (readCsvLine iCsv) (V.imap (\i l -> (i + lineOffset,l)) myLines) of
+    Left err -> Left err
+    Right csvLines -> return $ map (applyRules iCsv) (V.toList csvLines)
 
 -- ToJSON and FromJason instances
 instance ToJSON CsvDescription where
