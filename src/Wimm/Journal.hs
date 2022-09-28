@@ -38,7 +38,6 @@ import Data.Function (on)
 import Data.Time (Day)
 import Data.List (sortOn, groupBy)
 import Data.Foldable (traverse_)
-import Data.Bifunctor (first)
 import qualified Data.HashMap.Strict as HM
 
 -- | Checks if the integrety of the journal file
@@ -114,7 +113,7 @@ checkBalanceAssertion j = traverse_ checkBalance balAssertByIdent
                   $ map (\(d, p) -> (pAccount p, [(d,p)])) -- [(Identifier, [(Day, Posting)])]
                   $ reverse
                   $ sortOn fst
-                  $ map (first tDate) -- [(Day, Posting)]
+                  $ map (\(t, p) -> (fromMaybe (tDate t) (pBalanceDate p), p)) -- [(Day, Posting)]
                   $ concatMap txnToPostings -- [(Transaction, Posting)]
                   $ jTransactions j
 
