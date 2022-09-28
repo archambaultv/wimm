@@ -67,19 +67,45 @@ runCommand' (CTxnImport csvDescPath csvDataPath outputPath journalPath) = do
       Csv.decDelimiter = fromIntegral (ord (iCsvSeparator desc))
     }
   csvLines <- liftEither (Csv.decodeWith opt h csv :: Either String (V.Vector (V.Vector T.Text)))
-  -- Verify if we have to filter the existing transactions
+  
+  -- Verify if we have to filter with existing transactions
   myfilter <- case journalPath of
-              Nothing -> pure id
+              Nothing -> pure []
               Just jPath -> do
                 j <- decodeJournal jPath
-                pure $ removeDuplicateTxns (jTransactions j)
-  -- Extract the transactions from the csv file, apply the filter and write to file
-  txns <- liftEither $ fmap myfilter $ importTxns desc lineOffset csvLines
+                pure $ jTransactions j
+
+  -- Extract the transactions from the csv file
+  lineResults <- liftEither $ importTxns desc csvLines lineOffset myfilter
+  txns <- lift $ printImportReport lineResults
+
+  -- Build report and write transactions to file
   encodeFileByExt outputPath configTxnJSON configTxnYaml txns
 
 runCommand' (CCheck journalPath) = do
   _ <- decodeJournal journalPath -- Decode journal calls journalCheck
   lift $ putStrLn "Journal file OK"
+
+printImportReport :: [CsvLineResult] -> IO [Transaction]
+printImportReport xs =
+  let nbOfLines = show $ length xs
+      nbOfRejected = show $ length $ filter csvResultIsRejected xs
+      nbOfDuplicates = show $ length $ filter csvResultIsDuplicate xs
+      nbOfMatch = show $ length $ filter csvResultIsMatch xs
+      nbOfDefault = show $ length $ filter csvResultIsDefault xs
+      width = maximum $ map length [nbOfLines, nbOfRejected, nbOfDuplicates, nbOfMatch, nbOfDefault]
+      pad :: String -> String
+      pad s = replicate (width - length s) ' ' ++ s
+  in do
+    putStrLn $ "Number of csv lines       : " ++ pad nbOfLines
+    putStrLn $ "Number of rejected lines  : " ++ pad nbOfRejected
+    putStrLn $ "Number of duplicate lines : " ++ pad nbOfDuplicates
+    putStrLn $ "Number of matched lines   : " ++ pad nbOfMatch
+    putStrLn $ "Number of default lines   : " ++ pad nbOfDefault
+    return $ csvAcceptedResult xs
+
+
+
 
 runReport :: FilePath -> FilePath -> (Journal -> Report) -> ExceptT String IO ()
 runReport journalPath reportPath mkReport = do

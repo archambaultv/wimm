@@ -15,11 +15,21 @@ module Wimm.Import.Csv
   CsvDescription(..),
   CsvHeader(..),
   CsvRule(..),
+  csvRuleCountsAsDefault,
   CsvLineCriterion(..),
+  CsvLineResult(..),
+  csvAcceptedResult,
+  csvResultIsRejected,
+  csvResultIsDuplicate,
+  csvResultIsMatch,
+  csvResultIsDefault,
   importTxns
   )
 where
 
+import Data.Maybe (fromMaybe)
+import Data.Hashable
+import Data.Scientific (Scientific)
 import GHC.Generics
 import Data.Time (Day, parseTimeM, defaultTimeLocale, iso8601DateFormat)
 import qualified Data.Text as T
@@ -28,6 +38,7 @@ import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pai
                    Value, Encoding,  Options(..),toEncoding, genericToEncoding, 
                    genericToJSON, genericParseJSON, defaultOptions)
 import Wimm.Journal
+import qualified Data.HashMap.Strict as HM
 
 -- | Defines how to import transactions from a csv bank statement
 data CsvDescription = CsvDescription {
@@ -62,11 +73,46 @@ data CsvLine = CsvLine {
 -- a transaction
 data CsvRule = CsvRule {
   csvRuleCriteria :: [CsvLineCriterion],
-  csvRuleAccount2 :: T.Text,
+  csvRuleAccount2 :: Maybe T.Text, -- Nothing means not to import the transaction
   csvRuleCounterParty :: Maybe T.Text,
   csvRuleTags :: Maybe [T.Text],
-  csvRuleComment :: Maybe T.Text
+  csvRuleComment :: Maybe T.Text,
+  -- When reporting, should we consider this rule as a positive match or a default transaction
+  csvRuleCountsAsDefaultM :: Maybe Bool 
 } deriving (Eq, Show, Generic)
+
+csvRuleCountsAsDefault :: CsvRule -> Bool
+csvRuleCountsAsDefault = fromMaybe False . csvRuleCountsAsDefaultM
+
+-- | The results of importing a transaction via a csv
+data CsvLineResult = 
+    Rejected CsvRule -- A rule specified to drop this transaction
+  | Duplicate -- The transaction was removed because it was a duplicate 
+  | Accepted (Maybe CsvRule) Transaction -- Nothing means no ruled applied
+  deriving (Eq, Show)
+
+csvAcceptedResult :: [CsvLineResult] -> [Transaction]
+csvAcceptedResult = foldr go []
+  where go (Rejected _) acc = acc
+        go Duplicate acc = acc
+        go (Accepted _ t) acc = t : acc
+
+csvResultIsRejected :: CsvLineResult -> Bool
+csvResultIsRejected (Rejected _) = True
+csvResultIsRejected _ = False
+
+csvResultIsDuplicate :: CsvLineResult -> Bool
+csvResultIsDuplicate Duplicate = True
+csvResultIsDuplicate _ = False
+
+csvResultIsMatch :: CsvLineResult -> Bool
+csvResultIsMatch (Accepted (Just x) _) | not (csvRuleCountsAsDefault x) = True
+csvResultIsMatch _ = False
+
+csvResultIsDefault :: CsvLineResult -> Bool
+csvResultIsDefault (Accepted (Just x) _) | csvRuleCountsAsDefault x = True
+csvResultIsDefault (Accepted Nothing _) = True
+csvResultIsDefault _ = False
 
 -- How to match a CsvLine
 data CsvLineCriterion = MatchStatementDesc T.Text
@@ -97,7 +143,8 @@ defaultTransaction iCsv csvLine =
               (Just $ csvLineStatementDesc csvLine)
 
 -- The first rule that matches
-applyRules :: CsvDescription -> CsvLine -> Transaction
+-- Returns Rejected or Accepted
+applyRules :: CsvDescription -> CsvLine -> CsvLineResult
 applyRules iCsv csvLine =
   let -- Add the default rules to the user provided rules
       rules = iRules iCsv
@@ -105,23 +152,25 @@ applyRules iCsv csvLine =
       tDefault = defaultTransaction iCsv csvLine
       -- Try to apply the rules
       -- Take the first one that applies
-      txn :: Transaction
-      txn = foldr matchLine tDefault rules
+      txn :: CsvLineResult
+      txn = foldr matchLine (Accepted Nothing tDefault) rules
   in txn
 
-  where matchLine :: CsvRule -> Transaction -> Transaction
+  where matchLine :: CsvRule -> CsvLineResult -> CsvLineResult
         matchLine r t = if all (matchCriteria csvLine) (csvRuleCriteria r)
                         then mkTxn r
                         else t
 
-
-        mkTxn :: CsvRule -> Transaction
+        mkTxn :: CsvRule -> CsvLineResult
         mkTxn csvRule = 
+          case csvRuleAccount2 csvRule of
+            Nothing -> Rejected csvRule
+            Just acc2 -> Accepted (Just csvRule) $
               Transaction (csvLineDate csvLine)
                           (csvRuleCounterParty csvRule)
                           (csvRuleTags csvRule)
                           [Posting Nothing (csvLineAccount1 csvLine) (csvLineAmount csvLine),
-                           Posting Nothing (csvRuleAccount2 csvRule) (negate $ csvLineAmount csvLine) ]
+                           Posting Nothing acc2 (negate $ csvLineAmount csvLine) ]
                           (csvRuleComment csvRule)
                           (Just $ csvLineStatementDesc csvLine)
 
@@ -150,11 +199,54 @@ readCsvLine iCsv (n, line) =
     let desc = line V.! statementDescIdx
     return (CsvLine acc1 date desc amount)
 
-importTxns :: CsvDescription -> Int -> V.Vector (V.Vector T.Text) -> Either String [Transaction]
-importTxns iCsv lineOffset myLines =
-  case traverse (readCsvLine iCsv) (V.imap (\i l -> (i + lineOffset,l)) myLines) of
-    Left err -> Left err
-    Right csvLines -> return $ map (applyRules iCsv) (V.toList csvLines)
+importTxns :: CsvDescription -> -- The description of the csv file
+              V.Vector (V.Vector T.Text) -> -- The content of the file
+              Int -> -- The offset of the content for error reporting
+              [Transaction] -> -- A list of transactions to test against for duplicates
+              Either String [CsvLineResult]
+importTxns iCsv myLines lineOffset oldTxns = do
+  csvLines <- traverse (readCsvLine iCsv) (V.imap (\i l -> (i + lineOffset,l)) myLines)
+  let res = map (applyRules iCsv) (V.toList csvLines)
+  return $ removeDuplicateTxns oldTxns res
+
+-- | The part of a transaction that must match for a duplicate detection
+data TxnKey = TxnKey {
+  tkDate :: Day,
+  tkPostings :: [(Identifier, Scientific)],
+  tkStatementDesc :: T.Text
+} deriving (Eq, Ord, Show, Generic)
+
+instance Hashable TxnKey
+
+toTxnKey :: Transaction -> TxnKey
+toTxnKey t = TxnKey (tDate t) 
+                    (map (\p -> (pAccount p,toScientific $ pAmount p)) $ tPostings t) 
+                    (tStatementDescription t)
+
+-- | removeDuplicateTxns acc old new returns new', the new transactions where
+-- the existing one in old are filtered out
+removeDuplicateTxns :: [Transaction] -> 
+                       [CsvLineResult] -> 
+                       [CsvLineResult]
+removeDuplicateTxns [] new = new                       
+removeDuplicateTxns old new =
+  let oldKeys :: HM.HashMap TxnKey Int
+      oldKeys = HM.fromListWith (+) 
+              $ zip (map toTxnKey old) (repeat 1)
+      dedup :: CsvLineResult -> (HM.HashMap TxnKey Int, [CsvLineResult]) -> (HM.HashMap TxnKey Int, [CsvLineResult])
+      dedup x@(Rejected _) (m,xs) = (m, x : xs) -- Nothing to filter
+      dedup Duplicate (m,xs) = (m, Duplicate : xs) -- Nothing to filter
+      dedup x@(Accepted _ t) (m, acc) =
+        let k = (toTxnKey t)
+            foo :: (Maybe Int -> Maybe (Maybe Int))
+            foo Nothing = Nothing -- Simply not in the map
+            foo (Just 1) = (Just Nothing) -- Remove the key
+            foo (Just n) = (Just (Just (n - 1))) -- Decrement the value
+        in case HM.alterF foo k m of
+              Nothing -> (m, x : acc) -- Not in old
+              Just m' -> (m', acc) -- In old
+
+  in snd $ foldr dedup (oldKeys, []) new
 
 -- ToJSON and FromJason instances
 instance ToJSON CsvDescription where
@@ -221,6 +313,7 @@ fieldNameCsvRule "csvRuleAccount2" = "account 2"
 fieldNameCsvRule "csvRuleCounterParty" = "counterparty"
 fieldNameCsvRule "csvRuleTags" = "tags"
 fieldNameCsvRule "csvRuleComment" = "comment"
+fieldNameCsvRule "csvRuleCountsAsDefaultM" = "default rule"
 fieldNameCsvRule x = x
 
 instance ToJSON CsvLineCriterion where
