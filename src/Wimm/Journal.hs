@@ -53,6 +53,15 @@ journalCheck j = do
   checkEarningsAccountExists j
   checkTransactionsBalance j
   checkBalanceAssertion j
+  -- TODO
+  -- check that first fiscal month is valid
+  -- check account identifiers are unique
+  -- check account numbers are unique
+  -- check identifier are valid in txns
+  -- check each transactions have at least 2 postings
+  -- check identifier are valid in balance assertion
+  -- check identifier are valid in budget
+  -- check default budget is a valid budget name
 
 checkOpeningBalanceAccountExists :: Journal -> Either String ()
 checkOpeningBalanceAccountExists = checkAccIdent jOpeningBalanceAccount "opening balance account "
