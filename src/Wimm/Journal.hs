@@ -46,7 +46,7 @@ import qualified Data.HashMap.Strict as HM
 --   - Declared opening balance account is an actual account
 --   - Declared earnings account is an actual account
 --   - Each transaction must balance
---   - Balance assertion are valid
+--   - Balance assertions are valid
 journalCheck :: Journal -> Either String ()
 journalCheck j = do
   checkOpeningBalanceAccountExists j
