@@ -24,7 +24,9 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Data.HashMap.Strict as HM
 import Data.Char (ord)
+import Data.List (sortOn, intercalate)
 import Wimm.Journal
 import Wimm.Import.Csv
 import Wimm.Report
@@ -89,19 +91,41 @@ runCommand' (CCheck journalPath) = do
 printImportReport :: [CsvLineResult] -> IO [Transaction]
 printImportReport xs =
   let nbOfLines = show $ length xs
+      defaults :: [Transaction]
+      defaults = csvDefaultResult xs
       nbOfRejected = show $ length $ filter csvResultIsRejected xs
       nbOfDuplicates = show $ length $ filter csvResultIsDuplicate xs
       nbOfMatch = show $ length $ filter csvResultIsMatch xs
-      nbOfDefault = show $ length $ filter csvResultIsDefault xs
-      width = maximum $ map length [nbOfLines, nbOfRejected, nbOfDuplicates, nbOfMatch, nbOfDefault]
-      pad :: String -> String
-      pad s = replicate (width - length s) ' ' ++ s
+      nbOfDefault = show $ length $ defaults
+      widthN = maximum $ map length [nbOfLines, nbOfRejected, nbOfDuplicates, nbOfMatch, nbOfDefault]
+      pad :: Int -> String -> String
+      pad width s = replicate (width - length s) ' ' ++ s
+      topDefault = take 10
+                 $ reverse
+                 $ sortOn snd
+                 $ HM.toList
+                 $ HM.fromListWith (+)
+                 $ map (\t -> (tStatementDescription t, (1 :: Int))) defaults
+      widthDefN = maximum $ map (length . show . snd) topDefault
+      widthDefS = maximum $ map (T.length . fst) topDefault
+      rpad :: Int -> String -> String
+      rpad width s = s ++ replicate (width - length s) ' '
+      topDefaultStr = intercalate "\n"
+                    $ map (\(d,n) ->rpad widthDefS (T.unpack d) ++ " : " ++ pad widthDefN (show n))
+                    $ topDefault
   in do
-    putStrLn $ "Number of csv lines       : " ++ pad nbOfLines
-    putStrLn $ "Number of rejected lines  : " ++ pad nbOfRejected
-    putStrLn $ "Number of duplicate lines : " ++ pad nbOfDuplicates
-    putStrLn $ "Number of matched lines   : " ++ pad nbOfMatch
-    putStrLn $ "Number of default lines   : " ++ pad nbOfDefault
+    putStrLn $ "Number of csv lines       : " ++ pad widthN nbOfLines
+    putStrLn $ "Number of rejected lines  : " ++ pad widthN nbOfRejected
+    putStrLn $ "Number of duplicate lines : " ++ pad widthN nbOfDuplicates
+    putStrLn $ "Number of matched lines   : " ++ pad widthN nbOfMatch
+    putStrLn $ "Number of default lines   : " ++ pad widthN nbOfDefault
+    (if null defaults 
+     then return () 
+     else do
+      putStrLn ""
+      putStrLn "Statement descriptions with the most default transactions"
+      putStrLn topDefaultStr)
+
     return $ csvAcceptedResult xs
 
 runReport :: FilePath -> FilePath -> (Journal -> Report) -> ExceptT String IO ()

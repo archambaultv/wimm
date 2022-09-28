@@ -19,6 +19,7 @@ module Wimm.Import.Csv
   CsvLineCriterion(..),
   CsvLineResult(..),
   csvAcceptedResult,
+  csvDefaultResult,
   csvResultIsRejected,
   csvResultIsDuplicate,
   csvResultIsMatch,
@@ -96,6 +97,15 @@ csvAcceptedResult = foldr go []
   where go (Rejected _) acc = acc
         go Duplicate acc = acc
         go (Accepted _ t) acc = t : acc
+
+csvDefaultResult :: [CsvLineResult] -> [Transaction]
+csvDefaultResult = foldr go []
+  where go (Rejected _) acc = acc
+        go Duplicate acc = acc
+        go x@(Accepted _ t) acc =
+          if csvResultIsDefault x
+          then t : acc
+          else acc
 
 csvResultIsRejected :: CsvLineResult -> Bool
 csvResultIsRejected (Rejected _) = True
