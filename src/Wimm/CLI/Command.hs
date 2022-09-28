@@ -104,9 +104,6 @@ printImportReport xs =
     putStrLn $ "Number of default lines   : " ++ pad nbOfDefault
     return $ csvAcceptedResult xs
 
-
-
-
 runReport :: FilePath -> FilePath -> (Journal -> Report) -> ExceptT String IO ()
 runReport journalPath reportPath mkReport = do
   journal <- decodeJournal journalPath
