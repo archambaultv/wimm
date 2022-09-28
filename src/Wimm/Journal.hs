@@ -108,6 +108,7 @@ checkBalanceAssertion j = traverse_ checkBalance balAssertByIdent
                        $ jBalanceAssertions j
 
       -- All the postings related to an account in increasing order of dates
+      -- When provided, we use the balance date instead of the transaction date
       postingsMap :: HM.HashMap Identifier [(Day, Posting)]
       postingsMap = HM.fromListWith (++)
                   $ map (\(d, p) -> (pAccount p, [(d,p)])) -- [(Identifier, [(Day, Posting)])]
@@ -122,27 +123,38 @@ checkBalanceAssertion j = traverse_ checkBalance balAssertByIdent
       -- sums the postings and for each balance assertion dates verify that the
       -- sum match the assertion.
       checkBalance :: [(Int, BalanceAssertion)] -> Either String ()
-      checkBalance [] = return ()
       checkBalance bs =
         let ident = baAccount $ snd $ head bs
-            ps = fromMaybe [] $ HM.lookup ident postingsMap
-            verifySum :: [(Day, Posting)] -> [(Int, BalanceAssertion)] -> Amount -> Either String ()
-            -- No more balance assertion, we are done
-            verifySum _ [] _ = return ()
-            -- No more posting, it must match the current balance amount
-            verifySum [] ((n, BalanceAssertion _ _ amnt) : xs) balance = do
-              match n balance amnt
-              verifySum [] xs balance
-            -- Still some postings and balance assertions
-            verifySum xs@((d,p):xss) ys@((n, BalanceAssertion date _ amnt):yss) balance =
-              if date < d 
+            
+            postings :: [(Day, Posting)]
+            postings = fromMaybe [] $ HM.lookup ident postingsMap
+
+            verifySum :: (Int, BalanceAssertion) ->
+                         ((Amount, [(Day, Posting)]) -> Either String ()) ->  
+                          (Amount, [(Day, Posting)]) -> Either String ()
+            -- No more posting, balance assertion must match the current balance amount
+            verifySum (n, b) nextBalanceAssertion acc@(balance, []) = do
+              match n balance (baAmount b)
+              nextBalanceAssertion acc
+            -- Still some postings
+            verifySum (n, b) nextBalanceAssertion acc@(balance, accps@((d, _):_)) =
+              if baDate b < d
               then do 
-              -- If the balance assertion date is before the next posting, it must match the current balance amount
-                    match n balance amnt
-                    verifySum xs yss balance
+              -- If the balance assertion date is before the next posting, it
+              -- must match the current balance amount. Then we go on to the
+              -- next balance without consuming any posting since they might
+              -- also occur after the next balance date.
+                    match n balance (baAmount b)
+                    nextBalanceAssertion acc
               else 
-              -- The balance assertion is equal or after the next posting, we update the balance
-                  verifySum xss ys (balance + pAmount p)
+              -- The balance assertion is equal or after the next posting, we
+              -- update the balance by consuming all postings until we reach the
+              -- next day of the assertion date
+                  let (toSum,after) = span ((baDate b >=) . fst) accps
+                      newBalance = balance + sum (map (pAmount . snd) toSum)
+                  in do
+                    match n newBalance (baAmount b)
+                    nextBalanceAssertion (newBalance, after)
 
             match :: Int -> Amount -> Amount -> Either String ()
             match _ x y | x == y = return ()
@@ -152,4 +164,4 @@ checkBalanceAssertion j = traverse_ checkBalance balAssertByIdent
                         ++ "\nActual balance " ++ show x
                         ++ "\nAsserted balance " ++ show y
                         ++ "\nDifference : " ++ show (x - y)
-        in verifySum ps bs 0
+        in foldr verifySum (const $ return ()) bs (0, postings)
