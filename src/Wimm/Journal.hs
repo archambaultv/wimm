@@ -42,10 +42,28 @@ import qualified Data.HashMap.Strict as HM
 
 -- | Checks if the integrety of the journal file
 -- Checks for :
+--   - Each transaction must balance
 --   - Balance assertion correctness
 journalCheck :: Journal -> Either String ()
 journalCheck j = do
+  checkTransactionsBalance j
   checkBalanceAssertion j
+
+checkTransactionsBalance :: Journal -> Either String ()
+checkTransactionsBalance j = traverse_ checkTxn txns
+  where txns :: [(Int, Transaction)]
+        txns = zip [0..] (jTransactions j)
+
+        checkTxn :: (Int, Transaction) -> Either String ()
+        checkTxn (n, t) = 
+          let txnBalance = sum
+                         $ map pAmount
+                         $ tPostings t
+          in if txnBalance == 0
+             then return ()
+             else Left  $ "transaction[" ++ show n ++ "] "
+                       ++ "does not balance to zero."
+                       ++ "\nActual balance " ++ show txnBalance
 
 checkBalanceAssertion :: Journal -> Either String ()
 checkBalanceAssertion j = traverse_ checkBalance balAssertByIdent
