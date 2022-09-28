@@ -21,7 +21,8 @@ module Wimm.Journal.Journal
       budgetAccounts,
       accountForest,
       AccountInfo(..),
-      accInfoMap
+      accInfoMap,
+      accInfoList
     ) where
 
 import Data.Maybe (fromMaybe)
@@ -155,8 +156,11 @@ data AccountInfo = AccountInfo {
 }
 -- | Returns a map from Identifier to account type
 accInfoMap :: Journal -> HM.HashMap Identifier AccountInfo
-accInfoMap j = HM.fromList
-             $ concatMap (\(accType, f) -> cata (alg accType) (f j))
+accInfoMap j = HM.fromList (accInfoList j)
+
+-- | Returns a map from Identifier to account type
+accInfoList :: Journal -> [(Identifier, AccountInfo)]
+accInfoList j = concatMap (\(accType, f) -> cata (alg accType) (f j))
               [(Asset, jAsset), 
               (Liability, jLiability),
               (Equity, jEquity),

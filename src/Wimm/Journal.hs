@@ -32,6 +32,7 @@ import Wimm.Journal.ReportParameters
 import Wimm.Journal.Budget
 import Wimm.Journal.BalanceAssertion
 
+import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
 import Data.Function (on)
 import Data.Time (Day)
@@ -41,13 +42,32 @@ import Data.Bifunctor (first)
 import qualified Data.HashMap.Strict as HM
 
 -- | Checks if the integrety of the journal file
--- Checks for :
+-- Checks that :
+--   - Declared opening balance account is an actual account
+--   - Declared earnings account is an actual account
 --   - Each transaction must balance
---   - Balance assertion correctness
+--   - Balance assertion are valid
 journalCheck :: Journal -> Either String ()
 journalCheck j = do
+  checkOpeningBalanceAccountExists j
+  checkEarningsAccountExists j
   checkTransactionsBalance j
   checkBalanceAssertion j
+
+checkOpeningBalanceAccountExists :: Journal -> Either String ()
+checkOpeningBalanceAccountExists = checkAccIdent jOpeningBalanceAccount "opening balance account "
+
+checkEarningsAccountExists :: Journal -> Either String ()
+checkEarningsAccountExists = checkAccIdent jEarningsAccount "earnings account "
+
+checkAccIdent :: (Journal -> T.Text) -> String -> Journal -> Either String ()
+checkAccIdent foo errMsg j =
+  let acc = foo j
+      identifiers = map fst $ accInfoList j
+  in if acc `elem` identifiers
+     then return ()
+     else Left $ errMsg ++ "'" ++ (T.unpack acc)
+               ++ "' is not a valid account identifier."
 
 checkTransactionsBalance :: Journal -> Either String ()
 checkTransactionsBalance j = traverse_ checkTxn txns
