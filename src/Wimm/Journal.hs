@@ -42,18 +42,20 @@ import qualified Data.HashMap.Strict as HM
 
 -- | Checks if the integrety of the journal file
 -- Checks that :
+--   - The first fiscal month is valid
 --   - Declared opening balance account is an actual account
 --   - Declared earnings account is an actual account
 --   - Each transaction must balance
 --   - Balance assertions are valid
 journalCheck :: Journal -> Either String ()
 journalCheck j = do
+  checkFirstFiscalMonth j
   checkOpeningBalanceAccountExists j
   checkEarningsAccountExists j
   checkTransactionsBalance j
   checkBalanceAssertion j
   -- TODO
-  -- check that first fiscal month is valid
+
   -- check account identifiers are unique
   -- check account numbers are unique
   -- check identifier are valid in txns
@@ -61,6 +63,13 @@ journalCheck j = do
   -- check identifier are valid in balance assertion
   -- check identifier are valid in budget
   -- check default budget is a valid budget name
+
+checkFirstFiscalMonth :: Journal -> Either String ()
+checkFirstFiscalMonth j = 
+  let n = jFirstFiscalMonth j
+  in if n < 1 || n > 12
+     then Left $ "first fiscal month invalid month number '" ++ show n ++ "'"
+     else return ()
 
 checkOpeningBalanceAccountExists :: Journal -> Either String ()
 checkOpeningBalanceAccountExists = checkAccIdent jOpeningBalanceAccount "opening balance account "
