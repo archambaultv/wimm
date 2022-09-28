@@ -29,10 +29,11 @@ module Wimm.Import.Csv
 where
 
 import Data.Maybe (fromMaybe)
+import Data.Char (toLower)
 import Data.Hashable
 import Data.Scientific (Scientific)
 import GHC.Generics
-import Data.Time (Day, parseTimeM, defaultTimeLocale, iso8601DateFormat)
+import Data.Time (Day, DayOfWeek(..), dayOfWeek, parseTimeM, defaultTimeLocale, iso8601DateFormat)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=), withObject, (.:), pairs,
@@ -130,6 +131,7 @@ data CsvLineCriterion = MatchStatementDesc T.Text
                       | AmountAbove Amount
                       | AmountBelow Amount
                       | MatchDate Day
+                      | CDayOfWeek DayOfWeek
                       deriving (Eq, Show)
 
 matchCriteria :: CsvLine -> CsvLineCriterion -> Bool
@@ -138,6 +140,7 @@ matchCriteria l (MatchAmount m) = csvLineAmount l == m
 matchCriteria l (AmountAbove limit) = csvLineAmount l > limit
 matchCriteria l (AmountBelow limit) = csvLineAmount l < limit
 matchCriteria l (MatchDate d) = csvLineDate l == d
+matchCriteria l (CDayOfWeek d) = dayOfWeek (csvLineDate l) == d
 
 -- Builds the default rules from the JSON import csv file
 -- At least one of these rule will always match, so use them
@@ -332,12 +335,14 @@ instance ToJSON CsvLineCriterion where
   toJSON (AmountAbove limit) = mkCriterion "amount above" (toScientific limit)
   toJSON (AmountBelow limit) = mkCriterion "amount below" (toScientific limit)
   toJSON (MatchDate d) = mkCriterion "date" d
+  toJSON (CDayOfWeek d) = mkCriterion "day of week" d
 
   toEncoding (MatchStatementDesc t) = mkCriterion2 "statement description" t
   toEncoding (MatchAmount amnt) = mkCriterion2 "amount" (toScientific amnt)
   toEncoding (AmountAbove limit) = mkCriterion2 "amount above" (toScientific limit)
   toEncoding (AmountBelow limit) = mkCriterion2 "amount below" (toScientific limit)
   toEncoding (MatchDate d) = mkCriterion2 "date" d
+  toEncoding (CDayOfWeek d) = mkCriterion2 "day of week" d
 
 mkCriterion :: (ToJSON a) => String -> a -> Value
 mkCriterion s a = object ["criterion" .= s, "value" .= a]
@@ -354,4 +359,16 @@ instance FromJSON CsvLineCriterion where
         "amount above" -> AmountAbove <$> fmap fromScientific (v .: "value")
         "amount below" -> AmountBelow <$> fmap fromScientific (v .: "value")
         "date" -> MatchDate <$> v .: "value"
+        "day of week" -> do
+          x <- v .: "value"
+          d <- case map toLower (x :: String) of
+                  "monday" -> return Monday
+                  "tuesday" -> return Tuesday
+                  "wednesday" -> return Wednesday
+                  "thursday" -> return Thursday
+                  "friday" -> return Friday
+                  "saturday" -> return Saturday
+                  "sunday" -> return Sunday
+                  _ -> fail ("Invalid day of week '" ++ x ++ "'")
+          return $ CDayOfWeek d
         _ -> fail ("Invalid criterion '" ++ c ++ "'")
