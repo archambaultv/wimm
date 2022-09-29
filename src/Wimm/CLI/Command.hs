@@ -11,6 +11,7 @@
 module Wimm.CLI.Command
 (
   Command(..),
+  ImportCmd(..),
   runCommand
 ) where
 
@@ -38,9 +39,16 @@ data Command = CTxnReport FilePath FilePath
              | CBalSheetReport FilePath FilePath
              | CBudgetReport FilePath FilePath
              | CIncomeStatementReport FilePath FilePath
-             | CTxnImport FilePath FilePath FilePath (Maybe FilePath)
+             | CTxnImport ImportCmd
              | CCheck FilePath
 
+data ImportCmd = ImportCmd {
+  icCsvDescPath :: FilePath,
+  icCsvDataPath :: FilePath,
+  icOutputPath :: FilePath,
+  icJournalPath :: Maybe FilePath,
+  icNbOfDefaultTxnToDisplay :: Int
+}
 
 -- | How to execute the CLI commands
 runCommand :: Command -> IO ()
@@ -60,10 +68,10 @@ runCommand' (CBudgetReport journalPath reportPath) =
 runCommand' (CIncomeStatementReport journalPath reportPath) =
   runReport journalPath reportPath (incomeStatementReport (Nothing, Nothing))
 
-runCommand' (CTxnImport csvDescPath csvDataPath outputPath journalPath) = do
+runCommand' (CTxnImport cmd) = do
   -- Decode the csv description and the csv file itself
-  desc <- decodeFileByExt csvDescPath
-  csv <- lift $ BL.readFile csvDataPath
+  desc <- decodeFileByExt (icCsvDescPath cmd)
+  csv <- lift $ BL.readFile (icCsvDataPath cmd)
   let (h,lineOffset) = if iSkipHeader desc then (Csv.HasHeader, 1) else (Csv.NoHeader, 0)
   let opt = Csv.defaultDecodeOptions {
       Csv.decDelimiter = fromIntegral (ord (iCsvSeparator desc))
@@ -71,7 +79,7 @@ runCommand' (CTxnImport csvDescPath csvDataPath outputPath journalPath) = do
   csvLines <- liftEither (Csv.decodeWith opt h csv :: Either String (V.Vector (V.Vector T.Text)))
   
   -- Verify if we have to filter with existing transactions
-  myfilter <- case journalPath of
+  myfilter <- case (icJournalPath cmd) of
               Nothing -> pure []
               Just jPath -> do
                 j <- decodeJournal jPath
@@ -79,17 +87,17 @@ runCommand' (CTxnImport csvDescPath csvDataPath outputPath journalPath) = do
 
   -- Extract the transactions from the csv file
   lineResults <- liftEither $ importTxns desc csvLines lineOffset myfilter
-  txns <- lift $ printImportReport lineResults
+  txns <- lift $ printImportReport lineResults (icNbOfDefaultTxnToDisplay cmd)
 
   -- Build report and write transactions to file
-  encodeFileByExt outputPath configTxnJSON configTxnYaml txns
+  encodeFileByExt (icOutputPath cmd) configTxnJSON configTxnYaml txns
 
 runCommand' (CCheck journalPath) = do
   _ <- decodeJournal journalPath -- Decode journal calls journalCheck
   lift $ putStrLn "Journal file OK"
 
-printImportReport :: [CsvLineResult] -> IO [Transaction]
-printImportReport xs =
+printImportReport :: [CsvLineResult] -> Int -> IO [Transaction]
+printImportReport xs topDefaultNb =
   let nbOfLines = show $ length xs
       defaults :: [Transaction]
       defaults = csvDefaultResult xs
@@ -100,7 +108,8 @@ printImportReport xs =
       widthN = maximum $ map length [nbOfLines, nbOfRejected, nbOfDuplicates, nbOfMatch, nbOfDefault]
       pad :: Int -> String -> String
       pad width s = replicate (width - length s) ' ' ++ s
-      topDefault = take 10
+      topDefaultNb' = max 0 topDefaultNb
+      topDefault = take topDefaultNb'
                  $ reverse
                  $ sortOn snd
                  $ HM.toList
@@ -119,7 +128,7 @@ printImportReport xs =
     putStrLn $ "Number of duplicate lines : " ++ pad widthN nbOfDuplicates
     putStrLn $ "Number of matched lines   : " ++ pad widthN nbOfMatch
     putStrLn $ "Number of default lines   : " ++ pad widthN nbOfDefault
-    (if null defaults 
+    (if null defaults || topDefaultNb' == 0
      then return () 
      else do
       putStrLn ""

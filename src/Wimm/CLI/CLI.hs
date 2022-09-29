@@ -64,11 +64,16 @@ incomeStatementReportInfo = info (incomeStatementReport <**> helper)
                <> progDesc "Prints the income statement sheet in a CSV format")
 
 transactionsImport :: Parser Command
-transactionsImport = CTxnImport
+transactionsImport = fmap CTxnImport (ImportCmd
                    <$> csvDescFile
                    <*> statementFile
                    <*> outputFile
                    <*> optional journalFile
+                   <*> option auto (short 'n' <> 
+                                    metavar "DEFAULT-TXN-NB" <>
+                                    value 10 <>
+                                    help "The number of statement description with the most default transactions to display.")
+                  )
 
 transactionsImportInfo :: ParserInfo Command
 transactionsImportInfo = info (transactionsImport <**> helper)
