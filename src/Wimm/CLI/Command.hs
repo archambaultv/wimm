@@ -35,7 +35,7 @@ import Data.Char (toLower)
 import System.FilePath (takeExtension)
 
 -- | The commands accepted by the command line interface
-data Command = CTxnReport FilePath FilePath
+data Command = CTxnReport FilePath FilePath TxnReportParams
              | CBalSheetReport FilePath FilePath
              | CBudgetReport FilePath FilePath
              | CIncomeStatementReport FilePath FilePath
@@ -55,8 +55,8 @@ runCommand :: Command -> IO ()
 runCommand c = runExceptT (runCommand' c) >>= either putStrLn return
 
 runCommand' :: Command -> ExceptT String IO ()
-runCommand' (CTxnReport journalPath reportPath) = 
-  runReport journalPath reportPath (transactionReport (Nothing, Nothing))
+runCommand' (CTxnReport journalPath reportPath params) = 
+  runReport journalPath reportPath (transactionReport params)
 
 runCommand' (CBalSheetReport journalPath reportPath) =
   runReport journalPath reportPath (balanceSheetReport (Nothing, Nothing))

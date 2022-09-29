@@ -17,6 +17,7 @@ where
 
 import Options.Applicative
 import Wimm.CLI.Command
+import Wimm.Report (TxnReportParams(..))
 
 journalFile :: Parser String
 journalFile = argument str (metavar "JOURNAL-FILE" <> help "The journal file")
@@ -37,6 +38,11 @@ transactionsReport :: Parser Command
 transactionsReport = CTxnReport
                    <$> journalFile
                    <*> csvOutputFile
+                   <*> (TxnReportParams Nothing Nothing
+                       <$> switch (long "extra-info"
+                                   <> short 'e'
+                                   <> help "Add extra account information like account type, account number, etc." )
+                   )
 
 transactionsReportInfo :: ParserInfo Command
 transactionsReportInfo = info (transactionsReport <**> helper)
