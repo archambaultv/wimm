@@ -49,6 +49,7 @@ import qualified Data.HashMap.Strict as HM
 --   - The first fiscal month is valid
 --   - Declared opening balance account is an actual account
 --   - Declared earnings account is an actual account
+--   - Each transaction has a unique id
 --   - Each transaction has valid account identifiers
 --   - Each transaction has at least 2 postings
 --   - Each transaction balances to zero
@@ -104,8 +105,6 @@ checkBudget j = do
         accHS :: HS.HashSet Identifier
         accHS = HS.fromList $ map fst $ accInfoList j
 
-        
-
 noDup :: (Ord a) => String -> (a -> String) -> [a] -> Either String ()
 noDup name toStr xs = 
   case filter (not . null . tail) (group $ sort xs) of
@@ -148,9 +147,14 @@ checkAccIdent foo errMsg j =
                ++ "' is not a valid account identifier."
 
 checkTransactions :: Journal -> Either String ()
-checkTransactions j = traverse_ runChecks txns
+checkTransactions j = do
+  checkIds
+  traverse_ runChecks txns
   where txns :: [(Int, Transaction)]
         txns = zip [0..] (jTransactions j)
+
+        checkIds :: Either String ()
+        checkIds = noDup "transaction id" show (map tId $ jTransactions j)
 
         accHS :: HS.HashSet Identifier
         accHS = HS.fromList $ map fst $ accInfoList j

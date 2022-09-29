@@ -35,16 +35,15 @@ transactionReport (TxnReportParams startD endD extraInfo) journal =
              ++ extraHeader
       txns = filter (\t -> not (afterEndDate endD t || beforeStartDate startD t)) 
            $ jTransactions journal
-      numberedTxns = zip [1..] txns :: [(Int, Transaction)]
-  in header : foldr serializeTxn [] numberedTxns
+  in header : foldr serializeTxn [] txns
 
-  where serializeTxn ::  (Int, Transaction) -> Report -> Report
-        serializeTxn t report = foldr (serializePosting t) [] (tPostings (snd t)) 
+  where serializeTxn ::  Transaction -> Report -> Report
+        serializeTxn t report = foldr (serializePosting t) [] (tPostings t) 
                               ++ report
 
-        serializePosting :: (Int, Transaction) -> Posting -> Report -> Report
-        serializePosting (n, txn) p report =
-          let no = T.pack $ show n
+        serializePosting :: Transaction -> Posting -> Report -> Report
+        serializePosting txn p report =
+          let no = T.pack $ show $ tId txn
               date = T.pack $ toISO8601 $ tDate txn
               balDate = case pBalanceDate p of
                           Nothing -> ""

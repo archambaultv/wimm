@@ -33,6 +33,7 @@ import Wimm.Journal.Posting
 -- | A transaction is a transfert of funds between some accounts.
 data Transaction = Transaction
   {
+    tId :: Int,
     tDate :: Day,
     tCounterPartyM :: Maybe T.Text,
     tTagsM :: Maybe [T.Text],
@@ -81,6 +82,7 @@ customOptions = defaultOptions{
 }
 
 fieldName :: String -> String
+fieldName "tId" = "id"
 fieldName "tDate" = "date"
 fieldName "tCounterPartyM" = "counterparty"
 fieldName "tTagsM" = "tags"

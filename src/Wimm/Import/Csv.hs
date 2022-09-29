@@ -145,9 +145,10 @@ matchCriteria l (CDayOfWeek d) = dayOfWeek (csvLineDate l) == d
 -- Builds the default rules from the JSON import csv file
 -- At least one of these rule will always match, so use them
 -- after the customs rules
-defaultTransaction :: CsvDescription -> CsvLine -> Transaction
-defaultTransaction iCsv csvLine = 
-  Transaction (csvLineDate csvLine)
+defaultTransaction :: CsvDescription -> (Int, CsvLine) -> Transaction
+defaultTransaction iCsv (idTxn, csvLine) = 
+  Transaction idTxn
+              (csvLineDate csvLine)
               Nothing
               Nothing
               [Posting Nothing (csvLineAccount1 csvLine) (csvLineAmount csvLine),
@@ -157,12 +158,12 @@ defaultTransaction iCsv csvLine =
 
 -- The first rule that matches
 -- Returns Rejected or Accepted
-applyRules :: CsvDescription -> CsvLine -> CsvLineResult
-applyRules iCsv csvLine =
+applyRules :: CsvDescription -> (Int, CsvLine) -> CsvLineResult
+applyRules iCsv (idTxn, csvLine) =
   let -- Add the default rules to the user provided rules
       rules = iRules iCsv
       -- The default transaction
-      tDefault = defaultTransaction iCsv csvLine
+      tDefault = defaultTransaction iCsv (idTxn, csvLine)
       -- Try to apply the rules
       -- Take the first one that applies
       txn :: CsvLineResult
@@ -179,7 +180,8 @@ applyRules iCsv csvLine =
           case csvRuleAccount2 csvRule of
             Nothing -> Rejected csvRule
             Just acc2 -> Accepted (Just csvRule) $
-              Transaction (csvLineDate csvLine)
+              Transaction idTxn
+                          (csvLineDate csvLine)
                           (csvRuleCounterParty csvRule)
                           (csvRuleTags csvRule)
                           [Posting Nothing (csvLineAccount1 csvLine) (csvLineAmount csvLine),
@@ -215,11 +217,13 @@ readCsvLine iCsv (n, line) =
 importTxns :: CsvDescription -> -- The description of the csv file
               V.Vector (V.Vector T.Text) -> -- The content of the file
               Int -> -- The offset of the content for error reporting
-              [Transaction] -> -- A list of transactions to test against for duplicates
+              Maybe Journal -> -- If provided, we adjust the txn numbers and filter duplicates
               Either String [CsvLineResult]
-importTxns iCsv myLines lineOffset oldTxns = do
+importTxns iCsv myLines lineOffset journalM = do
+  let oldTxns = maybe [] jTransactions journalM
+  let startNum = if null oldTxns then 1 else maximum (map tId oldTxns) + 1
   csvLines <- traverse (readCsvLine iCsv) (V.imap (\i l -> (i + lineOffset,l)) myLines)
-  let res = map (applyRules iCsv) (V.toList csvLines)
+  let res = map (applyRules iCsv) (zip [startNum..] (V.toList csvLines))
   return $ testForDuplicateTxns oldTxns res
 
 -- | The part of a transaction that must match for a duplicate detection

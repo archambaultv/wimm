@@ -80,10 +80,8 @@ runCommand' (CTxnImport cmd) = do
   
   -- Verify if we have to filter with existing transactions
   myfilter <- case (icJournalPath cmd) of
-              Nothing -> pure []
-              Just jPath -> do
-                j <- decodeJournal jPath
-                pure $ jTransactions j
+              Nothing -> pure Nothing
+              Just jPath -> fmap Just $ decodeJournal jPath
 
   -- Extract the transactions from the csv file
   lineResults <- liftEither $ importTxns desc csvLines lineOffset myfilter
@@ -177,7 +175,7 @@ decodeFileByExt path  = ExceptT $
     _ -> fmap (either (Left . show) return) $ Yaml.decodeFileEither path
 
 txnConfCompare :: T.Text -> T.Text -> Ordering
-txnConfCompare = JSONP.keyOrder ["date","postings","comment","counterparty","tags","statement description"]
+txnConfCompare = JSONP.keyOrder ["date","id","postings","comment","counterparty","tags","statement description"]
                       `mappend` compare 
 
 configTxnYaml :: YamlP.Config
