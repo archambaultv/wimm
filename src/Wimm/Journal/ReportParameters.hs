@@ -11,7 +11,8 @@
 -- This module defines the report parameters that can be defined in the journal file
 
 module Wimm.Journal.ReportParameters
-    ( JournalReportParameters(..)
+    ( JournalReportParameters(..),
+      jCsvAddBom
     ) where
 
 import GHC.Generics
@@ -22,9 +23,17 @@ data JournalReportParameters = JournalReportParameters {
   -- | The decimal separator to use when writing amounts in the reports
   jDecimalSep :: Char,
 
-  -- | Csv separator to use when writing reports
-  jCsvSeparator :: Char
+  -- | Csv separator to use when writing csv reports
+  jCsvSeparator :: Char,
+
+  -- | Whether to add a UTF-8 BOM at the beginning of the CSV file (ex : Microsoft Excel)
+  jCsvAddBomM :: Maybe Bool
+
 } deriving (Eq, Show, Generic)
+
+jCsvAddBom :: JournalReportParameters -> Bool
+jCsvAddBom (JournalReportParameters _ _ Nothing) = False
+jCsvAddBom (JournalReportParameters _ _ (Just x)) = x
 
 instance ToJSON JournalReportParameters where
   toJSON = genericToJSON customOptions
@@ -42,4 +51,5 @@ customOptions = defaultOptions{
 fieldName :: String -> String
 fieldName "jDecimalSep" = "decimal separator"
 fieldName "jCsvSeparator" = "csv column separator"
+fieldName "jCsvAddBomM" = "csv UTF-8 BOM"
 fieldName x = x

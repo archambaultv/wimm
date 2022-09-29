@@ -103,7 +103,7 @@ jBudgets :: Journal -> [Budget]
 jBudgets j = fromMaybe [] (jBudgetsM j)
 
 jReportParams :: Journal -> JournalReportParameters
-jReportParams j = fromMaybe (JournalReportParameters '.' ',') (jReportParamsM j)
+jReportParams j = fromMaybe (JournalReportParameters '.' ',' Nothing) (jReportParamsM j)
 
 jBalanceAssertions :: Journal -> [BalanceAssertion]
 jBalanceAssertions j = fromMaybe [] (jBalanceAssertionsM j)

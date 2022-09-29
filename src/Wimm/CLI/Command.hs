@@ -142,7 +142,12 @@ runReport journalPath reportPath mkReport = do
   journal <- decodeJournal journalPath
   let report = mkReport journal
   let csvSep = jCsvSeparator $ jReportParams journal
-  lift $ writeReport reportPath csvSep report
+  let reportBL = writeReport csvSep report
+  let maybeBom = if jCsvAddBom $ jReportParams journal then bom else ""
+  lift $ BL.writeFile reportPath $ BL.concat [maybeBom, reportBL]
+
+bom :: BL.ByteString
+bom = BL.pack [0xEF,0xBB,0xBF]
 
 -- Decodes with pure JSON for .json file. Any other extension is decoded with in
 -- YAML

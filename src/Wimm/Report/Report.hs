@@ -31,7 +31,6 @@ import Data.Time (Day, formatTime, defaultTimeLocale, iso8601DateFormat)
 import qualified Data.Csv as C
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString as BS
 
 -- | A report is a two dimensionnal array, much like an spreedsheet containing text
 type Report = [ReportRow]
@@ -46,12 +45,12 @@ data ReportParams
   deriving (Eq, Show)
 
 -- | Encode a report as a CSV file
-writeReport :: FilePath -> Char -> Report -> IO ()
-writeReport path c report =
+writeReport :: Char -> Report -> BL.ByteString
+writeReport c report =
   let myOptions = C.defaultEncodeOptions {
                       C.encDelimiter = fromIntegral (ord c)
                     }
-  in BS.writeFile path $ BL.toStrict $ C.encodeWith myOptions report
+  in C.encodeWith myOptions report
 
 -- | Formats a date for reporting
 toISO8601 :: Day -> String
