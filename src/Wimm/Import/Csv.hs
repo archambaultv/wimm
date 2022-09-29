@@ -220,7 +220,7 @@ importTxns :: CsvDescription -> -- The description of the csv file
 importTxns iCsv myLines lineOffset oldTxns = do
   csvLines <- traverse (readCsvLine iCsv) (V.imap (\i l -> (i + lineOffset,l)) myLines)
   let res = map (applyRules iCsv) (V.toList csvLines)
-  return $ removeDuplicateTxns oldTxns res
+  return $ testForDuplicateTxns oldTxns res
 
 -- | The part of a transaction that must match for a duplicate detection
 data TxnKey = TxnKey {
@@ -238,11 +238,11 @@ toTxnKey t = TxnKey (tDate t)
 
 -- | removeDuplicateTxns acc old new returns new', the new transactions where
 -- the existing one in old are filtered out
-removeDuplicateTxns :: [Transaction] -> 
+testForDuplicateTxns :: [Transaction] -> 
                        [CsvLineResult] -> 
                        [CsvLineResult]
-removeDuplicateTxns [] new = new                       
-removeDuplicateTxns old new =
+testForDuplicateTxns [] new = new                       
+testForDuplicateTxns old new =
   let oldKeys :: HM.HashMap TxnKey Int
       oldKeys = HM.fromListWith (+) 
               $ zip (map toTxnKey old) (repeat 1)
@@ -257,7 +257,7 @@ removeDuplicateTxns old new =
             foo (Just n) = (Just (Just (n - 1))) -- Decrement the value
         in case HM.alterF foo k m of
               Nothing -> (m, x : acc) -- Not in old
-              Just m' -> (m', acc) -- In old
+              Just m' -> (m',Duplicate : acc) -- In old
 
   in snd $ foldr dedup (oldKeys, []) new
 
